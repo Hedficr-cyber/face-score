@@ -72,16 +72,23 @@ function drawOverlay(ctx, lm, w, h, ok) {
 }
 
 // opts.focalFor(w, h) → { focal, calibrated }：焦点距離（画素）。opts.mode：'calib-near' / 'calib-far' のとき較正用の撮影
-export async function startCapture({ video, canvas, onStatus, onProgress, onShot, onDone, onError, opts = {} }) {
+export async function startCapture({ video, canvas, onStatus, onProgress, onShot, onDone, onError, opts = {}, signal }) {
   let stopped = false;
   let stream = null;
   let raf = 0;
   const stop = () => {
     stopped = true;
     cancelAnimationFrame(raf);
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    video.srcObject = null;
+    signal?.removeEventListener('abort', stop);
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      // 前の起動処理が遅れて終わっても、新しく開いた撮影の映像には触らない。
+      if (video.srcObject === stream) video.srcObject = null;
+      stream = null;
+    }
   };
+  signal?.addEventListener('abort', stop, { once: true });
+  if (signal?.aborted) { stop(); return { stop }; }
 
   // カメラの起動と顔の検出の準備を同時に進める
   onStatus({ code: 'loading', text: 'カメラを準備しています' });
@@ -99,16 +106,19 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     video.setAttribute('playsinline', '');
     await video.play();
   } catch (e) {
+    if (stopped) return { stop };
     stop();
     onError({ code: 'camera', text: 'カメラを使えませんでした。ブラウザの設定でカメラを許可してください。', error: e });
     return { stop };
   }
+  if (stopped) return { stop };
 
   let landmarker;
   try {
     onStatus({ code: 'loading', text: '顔の検出を準備しています（初回は少し時間がかかります）' });
     landmarker = await landmarkerReady;
   } catch (e) {
+    if (stopped) return { stop };
     stop();
     onError({ code: 'model', text: '顔の検出を準備できませんでした。電波の良い場所で開き直してください。', error: e });
     return { stop };
@@ -118,6 +128,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
   const ctx2d = canvas.getContext('2d');
   const shots = [];
   const rawShots = [];
+  const shotWidths = [];
   let buffer = [];
   let rawBuffer = [];
   let faceWidths = [];
@@ -128,6 +139,16 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
   let retried = false;
   let prev = null;
   let luma = 255, frameNo = 0;
+
+  // 不成立になった「今の1枚」は、生の点も含めてまとめて捨てる。
+  // 撮り終えた1枚目の写真は、生え際合わせに使うため残す。
+  const resetShot = () => {
+    hold = 0; buffer = []; rawBuffer = []; faceWidths = [];
+    if (!shots.length && snapshot) {
+      snapshot.canvas.width = 0; snapshot.canvas.height = 0;
+      snapshot = null;
+    }
+  };
 
   const loop = async () => {
     if (stopped) return;
@@ -146,7 +167,11 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
         retried = true;
         cancelAnimationFrame(raf);
         const next = await reloadOnCpu().catch(() => null);
-        if (next) { landmarker = next; raf = requestAnimationFrame(loop); return; }
+        if (stopped) return;
+        if (next) {
+          resetShot(); turnBuf = []; turnKey = null; prev = null;
+          landmarker = next; raf = requestAnimationFrame(loop); return;
+        }
       }
       stop();
       onError({ code: 'detect', text: '顔の検出でエラーが起きました。もう一度お試しください。', error: e });
@@ -155,10 +180,11 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
 
     const lm = result.faceLandmarks?.[0];
     if (!lm || lm.length < 478) {
-      hold = 0; buffer = []; prev = null;
+      resetShot(); turnBuf = []; turnKey = null; prev = null; frameNo = 0;
       drawOverlay(ctx2d, null, w, h, false);
       onStatus({ code: 'search', text: '顔を枠に合わせてください' });
-      onProgress(shots.length, 0);
+      if (opts.mode === 'turn-scan') onProgress(Object.keys(views).length, 0, 5);
+      else onProgress(shots.length, 0);
       return;
     }
 
@@ -186,7 +212,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     const info = { angles: fit.angles, distance, motion, luma };
 
     if (problem) {
-      hold = 0; buffer = []; rawBuffer = []; faceWidths = [];
+      resetShot();
       onStatus({ ...problem, ...info });
       onProgress(shots.length, 0);
       return;
@@ -216,14 +242,15 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     shots.push(averagePoints(buffer));
     // 生の点（正規化座標）の平均も残す。焦点距離を較正し直したとき、あとから補正をやり直せるように
     rawShots.push(averagePoints(rawBuffer).map(([x, y, z]) => ({ x, y, z })));
-    buffer = []; rawBuffer = []; hold = 0;
+    shotWidths.push(faceWidths.reduce((s, v) => s + v, 0) / faceWidths.length);
+    buffer = []; rawBuffer = []; faceWidths = []; hold = 0;
     waitUntil = performance.now() + C.gapMs;
     onShot(shots.length);
     onProgress(shots.length, 0);
     if (shots.length >= C.shots) {
       const points = averagePoints(shots);
       stop();
-      const faceWidth = faceWidths.reduce((s, v) => s + v, 0) / faceWidths.length;
+      const faceWidth = shotWidths.reduce((s, v) => s + v, 0) / shotWidths.length;
       onDone({ points, shots, snapshot, raw: { w, h, shots: rawShots, focal, zScale: zs, calibrated: cam.calibrated }, faceWidth });
     }
   };

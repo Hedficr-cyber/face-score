@@ -12,9 +12,11 @@ function read() {
 
 let state = read();
 
-function write() {
+// 保存に成功した変更だけをメモリにも反映する。容量不足でも既存の記録は削らない。
+function write(next) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(KEY, JSON.stringify(next));
+    state = next;
     return true;
   } catch (e) {
     return false;
@@ -44,16 +46,12 @@ export const store = {
       rec.raw = { w: raw.w, h: raw.h, shots: raw.shots.map(packRaw), focal: Math.round(raw.focal), zScale: raw.zScale || 1, calibrated: !!raw.calibrated };
       delete rec.shots;
     }
-    state.records.push(rec);
-    if (!write()) {
-      // 容量が足りないときは、古い記録から各回の点（ぶれの計算用）を削って保存し直す
-      for (const r of state.records) { if (r !== rec) { delete r.shots; if (r.raw) r.raw.shots = r.raw.shots.slice(0, 1); } if (write()) break; }
-    }
-    return rec;
+    return write({ ...state, records: [...state.records, rec] }) ? rec : null;
   },
-  remove(id) { state.records = state.records.filter((r) => r.id !== id); write(); },
-  clear() { state.records = []; write(); },
+  remove(id) { return write({ ...state, records: state.records.filter((r) => r.id !== id) }); },
+  clear() { return write({ ...state, records: [] }); },
   setting: (k) => state.settings[k],
-  setSetting(k, v) { state.settings[k] = v; write(); },
+  setSetting(k, v) { return this.setSettings({ [k]: v }); },
+  setSettings(patch) { return write({ ...state, settings: { ...state.settings, ...patch } }); },
   exportText: () => JSON.stringify({ app: 'FACE SCORE', exportedAt: new Date().toISOString(), ...state }),
 };

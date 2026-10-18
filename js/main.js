@@ -5,12 +5,13 @@ import { portraitSVG, welcomeMark } from './portrait.js';
 import { chartSVG } from './chart.js';
 import { startCapture } from './capture.js';
 import { loadLandmarker } from './detector.js';
-import { toFaceAxes, averagePoints } from './geometry.js';
+import { toFaceAxes, alignToCanonical, averagePoints } from './geometry.js';
 import { detectHairline } from './hairline.js';
 import { frontalFromRaw, solveFocalFromTurns, fovDegrees } from './calibration.js';
 import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
+import { predictAttractiveness, validateAttractivenessModel } from './relative-score.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,6 +26,10 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
 } : null;
 
 const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false };
+let attractivenessModel = null;
+try { attractivenessModel = validateAttractivenessModel(store.setting('attractivenessModel')); } catch { /* 取り込み前は比率を表示 */ }
+const displayedScore = (r) => attractivenessModel ? r.attractiveness?.percentile ?? null : r.score.total;
+const metricLabel = () => attractivenessModel ? '魅力の相対点（研究版）' : '比率の総合点';
 
 // ---------- カメラの焦点距離（端末と解像度ごと。較正していなければ想定値） ----------
 const camKey = (w, h) => `${Math.max(w, h)}x${Math.min(w, h)}`;
@@ -46,6 +51,20 @@ function evaluate(rec) {
     points = averagePoints(shotPoints);
   }
   const a = analyze(points, rec.hairline);
+  let attractiveness = null, attractivenessError = null;
+  if (attractivenessModel && rec.raw) {
+    // 学習写真と同じ入力処理。比率側の遠近補正済みPを、そのまま研究モデルへ渡さない。
+    try {
+      const researchPoints = averagePoints(rec.raw.shots.map((s) => {
+        const p = toFaceAxes(unpackRaw(s), rec.raw.w, rec.raw.h);
+        const fit = alignToCanonical(p);
+        return p.map(fit.apply);
+      }));
+      attractiveness = predictAttractiveness(researchPoints, attractivenessModel);
+    } catch {
+      attractivenessError = 'この採点基準で研究点を計算できませんでした。比率の点数を表示しています。基準を取り込み直すか、比率表示に戻してください。';
+    }
+  }
   let spread = null;
   if (shotPoints && shotPoints.length > 1) {
     const totals = shotPoints.map((p) => analyze(p, rec.hairline).score.total);
@@ -59,6 +78,9 @@ function evaluate(rec) {
     hair: rankHair(a.measures, a.shape, a.score),
     glasses: rankGlasses(a.measures, a.shape),
     size: frameSize(a.measures),
+    // 古い未補正の記録を、新しい較正済み記録と同じ魅力の点数にはしない。
+    attractiveness,
+    attractivenessError,
   };
   memo.set(rec.id, result);
   return result;
@@ -77,7 +99,7 @@ const icon = {
   updown: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>',
 };
 
-function gauge(total) {
+function gauge(total, label = 'TOTAL / 100') {
   const r = 54, c = 2 * Math.PI * r, arc = c * 0.75;
   const val = arc * Math.max(0, Math.min(100, total)) / 100;
   const [int, dec] = one(total).split('.');
@@ -86,7 +108,7 @@ function gauge(total) {
       <circle class="track" cx="60" cy="60" r="${r}" stroke-dasharray="${arc} ${c}"/>
       <circle class="bar" cx="60" cy="60" r="${r}" stroke-dasharray="${val} ${c}" ${total >= 80 ? 'style="stroke:var(--accent)"' : ''}/>
     </svg>
-    <div class="gauge-num"><div class="n">${int}<small>.${dec}</small></div><div class="of">TOTAL / 100</div></div>
+    <div class="gauge-num"><div class="n">${int}<small>.${dec}</small></div><div class="of">${esc(label)}</div></div>
   </div>`;
 }
 
@@ -117,22 +139,25 @@ function renderResult(rec, { latest }) {
   const m = r.measures;
   const shape = r.shape;
   const second = shape.ranked[1];
+  const attraction = r.attractiveness;
   const chips = [
     `<span class="chip strong"><b>${esc(shape.main.name)}</b>${shape.main.p < 0.6 ? '寄り' : ''}</span>`,
     second && second.p >= 0.15 ? `<span class="chip">${esc(second.name)} ${Math.round(second.p * 100)}%</span>` : '',
     r.spread != null ? `<span class="chip">ぶれ ±${one(r.spread)}</span>` : '',
     `<span class="chip">生え際 ${m.thirds.hairlineSet ? '指定' : '推定'}</span>`,
-    r.calibrated == null ? '<span class="chip">遠近補正なし（v0.1 の記録）</span>'
-      : r.calibrated ? '<span class="chip">遠近補正 較正済み</span>'
-        : '<button class="chip warn" type="button" data-act="calib">遠近補正 未較正 ›</button>',
+    r.calibrated == null ? '<span class="chip">比率の遠近補正なし（v0.1 の記録）</span>'
+      : r.calibrated ? '<span class="chip">比率の遠近補正 較正済み</span>'
+        : '<button class="chip warn" type="button" data-act="calib">比率の遠近補正 未較正 ›</button>',
   ].join('');
 
   view.innerHTML = `
     ${latest ? '' : '<a class="chip" href="#history" style="display:inline-block;margin:2px 0 8px">← 記録へ戻る</a>'}
     <section class="hero fade-in">
       <div class="hero-date">${dateText(rec.at)}</div>
-      ${gauge(r.score.total)}
+      <div class="small">${attraction ? metricLabel() : '比率の総合点'}</div>
+      ${gauge(attraction ? attraction.percentile : r.score.total, attraction ? 'RELATIVE / 100' : 'BALANCE / 100')}
       <div class="chips">${chips}</div>
+      ${attraction ? `<p class="small">アジア男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。日本人全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。</p>' : ''}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
       ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
@@ -178,6 +203,7 @@ function scoreTab(rec, r) {
   }).join('');
 
   return `
+    ${r.attractiveness ? `<div class="card small">比率の総合点：<b>${one(r.score.total)}</b> / 100。下の5項目は比率の内訳で、魅力の相対点とは別の指標です。</div>` : ''}
     <div class="label">Portrait</div>
     <div class="card portrait">
       ${portraitSVG(r.points, m, ui.portrait)}
@@ -186,7 +212,7 @@ function scoreTab(rec, r) {
     </div>
     <div class="label">Breakdown</div>
     <div class="items">${items}</div>
-    <p class="small" style="margin-top:14px">左右対称・縦のバランスは「左右がそろう・縦3等分」との差、横のバランス・パーツの配置・輪郭は「平均顔（東アジア人男性 204 人の公開データを同じ方法で測った平均）との近さ」で採点しています。平均的な人がおよそ 50 点です。魅力そのものの評価ではありません。</p>
+    <p class="small" style="margin-top:14px">左右対称・縦のバランスは「左右がそろう・縦3等分」との差、横のバランス・パーツの配置・輪郭は「平均顔（東アジア人男性の顔画像 204 枚を同じ方法で測った平均）との近さ」で採点しています。およそ 50 点が基準データの中央値になるのは、横・パーツ・輪郭の3項目です。総合点の中央値は 50 点ではなく、日本人全体の順位や魅力そのものを表す点数でもありません。</p>
   `;
 }
 
@@ -242,29 +268,31 @@ function renderHistory() {
     view.innerHTML = `<div class="empty fade-in">まだ記録がありません。<br><br><button class="btn" type="button" data-act="shoot">測定をはじめる</button></div>`;
     return;
   }
-  const rows = recs.map((rec) => ({ rec, r: evaluate(rec) }));
-  const totals = rows.map((x) => x.r.score.total);
-  const best = Math.max(...totals);
-  const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
-  const chrono = rows.slice(0, 30).reverse().map((x) => ({ at: x.rec.at, total: x.r.score.total }));
+  const rows = recs.map((rec) => { const r = evaluate(rec); return { rec, r, value: displayedScore(r) }; });
+  const totals = rows.map((x) => x.value).filter(Number.isFinite);
+  const best = totals.length ? Math.max(...totals) : null;
+  const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
+  const num = (v) => v == null ? '—' : one(v);
+  const chrono = rows.filter((x) => x.value != null).slice(0, 30).reverse().map((x) => ({ at: x.rec.at, total: x.value }));
   view.innerHTML = `
     <div class="fade-in">
       <div class="label" style="margin-top:8px">Summary</div>
+      <p class="small">${metricLabel()}${attractivenessModel ? '。遠近補正前の古い記録は集計に含みません。' : ''}</p>
       <div class="stats">
-        <div><b>${one(totals[0])}</b><span>最新</span></div>
-        <div><b>${one(best)}</b><span>最高</span></div>
-        <div><b>${one(avg)}</b><span>平均</span></div>
+        <div><b>${num(rows[0].value)}</b><span>最新</span></div>
+        <div><b>${num(best)}</b><span>最高</span></div>
+        <div><b>${num(avg)}</b><span>平均</span></div>
         <div><b>${recs.length}</b><span>回数</span></div>
       </div>
-      <div class="card chart">${chartSVG(chrono)}</div>
+      ${chrono.length ? `<div class="card chart">${chartSVG(chrono)}</div>` : '<p class="small">新しく測定すると、魅力の相対点を表示できます。</p>'}
       <div class="label">History</div>
-      <div class="list">${rows.map(({ rec, r }, i) => {
+      <div class="list">${rows.map(({ rec, r, value }, i) => {
         const prev = rows[i + 1];
-        const d = prev ? r.score.total - prev.r.score.total : null;
+        const d = prev?.value != null && value != null ? value - prev.value : null;
         return `<a class="row" href="#r/${encodeURIComponent(rec.id)}">
-          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}</div></div>
+          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}${value == null ? '・比率のみ' : ''}</div></div>
           <div class="row-delta${d != null && d > 0 ? ' up' : ''}">${d == null ? '' : `${d >= 0 ? '+' : ''}${one(d)}`}</div>
-          <div class="row-score">${one(r.score.total)}</div>
+          <div class="row-score">${num(value)}</div>
         </a>`;
       }).join('')}</div>
       <div class="actions">
@@ -320,8 +348,14 @@ view.addEventListener('click', (e) => {
   if (act === 'calib') openCalibSheet();
   if (act === 'allHair') { ui.allHair = true; rerenderTab(); }
   if (act === 'export') exportData();
-  if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => { store.clear(); memo.clear(); route(); toast('削除しました'); });
-  if (act === 'delete') confirmSheet('この記録を削除しますか？', '元に戻せません。', '削除する', () => { store.remove(t.dataset.id); memo.delete(t.dataset.id); location.hash = '#history'; toast('削除しました'); });
+  if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => {
+    if (!store.clear()) { toast('削除を保存できませんでした。記録は残っています'); return; }
+    memo.clear(); route(); toast('削除しました');
+  });
+  if (act === 'delete') confirmSheet('この記録を削除しますか？', '元に戻せません。', '削除する', () => {
+    if (!store.remove(t.dataset.id)) { toast('削除を保存できませんでした。記録は残っています'); return; }
+    memo.delete(t.dataset.id); location.hash = '#history'; toast('削除しました');
+  });
 });
 
 function exportData() {
@@ -352,6 +386,7 @@ function confirmSheet(title, text, okText, onOk) {
 function toast(text) {
   const el = document.createElement('div');
   el.className = 'toast'; el.textContent = text;
+  el.setAttribute('role', 'status');
   document.body.append(el);
   setTimeout(() => el.remove(), 2200);
 }
@@ -364,9 +399,16 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>顔の478点の位置をスマホの中で検出し、顔の向きを正面にそろえてから測ります。</li>
     <li>左右対称 30%、縦のバランス 20%、横のバランス 20%、パーツの配置 15%、輪郭 15% の重みで総合点にします。</li>
     <li>左右対称・縦のバランスは「左右がそろう・縦3等分」との差で採点します。</li>
-    <li>横のバランス・パーツの配置・輪郭は「平均顔との近さ」で採点します。平均顔は、公開データ FairFace（CC BY 4.0）の東アジア人男性 20〜39歳・正面・無表情の 204 人を、このアプリと同じ方法で測った平均です。平均的な人がおよそ 50 点になる目盛りで、手加減はしていません。</li>
+    <li>横のバランス・パーツの配置・輪郭は「平均顔との近さ」で採点します。平均顔は、公開データ FairFace（CC BY 4.0）の東アジア人男性 20〜39歳・正面・無表情の顔画像 204 枚を、このアプリと同じ方法で測った平均です。この3項目の中央値がおよそ 50 点になる目盛りで、手加減はしていません。総合点の中央値を 50 点にする目盛りではなく、日本人全体での順位も表していません。</li>
     <li>比率の点数であり、魅力そのものや人としての価値の評価ではありません。</li>
   </ul>
+  <h3>魅力の相対点（研究版）</h3>
+  <p>人が付けた評価を学んだ採点基準を、この端末へ取り込むと使えます。顔の形状から平均評価を予測する研究版で、比率の総合点とは別です。日本人全体の順位や、肌・髪を含む印象は未検証です。学習写真と同じ遠近補正前の形状で計算するため、撮影距離による影響は残ります。カメラの較正は比率側に適用されます。</p>
+  ${attractivenessModel ? `<p class="small">現在の基準：${esc(attractivenessModel.cohort.label)}<br>校正用${attractivenessModel.reference.values.length}画像内の順位。${attractivenessModel.evaluation?.model?.pearson_r != null ? `独立テストとの相関 ${Number(attractivenessModel.evaluation.model.pearson_r).toFixed(2)}（正解率ではありません）。` : ''}</p>` : '<p class="small">未取り込み。現在は比率の点数を表示しています。</p>'}
+  <div class="actions"><button class="btn ghost block" type="button" id="importAttractiveness">研究用の採点基準を取り込む</button>
+  ${attractivenessModel ? '<button class="btn ghost block" type="button" id="removeAttractiveness">比率スコアの表示に戻す</button>' : ''}</div>
+  <input id="attractivenessFile" type="file" accept=".json,application/json" hidden>
+  <p class="small">ファイルはこの端末の中で読み込みます。写真や採点基準を外部へ送信しません。</p>
   <h3>精度について</h3>
   <ul>
     <li>角度・照明・表情・前髪で数値は少し変わります。3回撮って平均し、そのぶれ幅を「ぶれ」に表示しています。</li>
@@ -383,17 +425,38 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   <p class="small" style="margin-top:18px">バージョン ${VERSION}・3枚×${CAPTURE.framesPerShot}フレームの平均</p>
 `));
 $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'infoCalib') { closeSheet(); openCalibSheet(); } });
+sheet.addEventListener('click', (e) => {
+  if (e.target.id === 'importAttractiveness') $('#attractivenessFile').click();
+  if (e.target.id === 'removeAttractiveness') {
+    if (!store.setSetting('attractivenessModel', null)) { toast('表示の設定を保存できませんでした'); return; }
+    attractivenessModel = null; memo.clear(); closeSheet(); route(); toast('比率スコアに戻しました');
+  }
+});
+sheet.addEventListener('change', async (e) => {
+  if (e.target.id !== 'attractivenessFile' || !e.target.files[0]) return;
+  try {
+    const file = e.target.files[0];
+    if (file.size > 1024 * 1024) throw new Error('採点基準のファイルが大きすぎます');
+    const model = validateAttractivenessModel(JSON.parse(await file.text()));
+    if (!store.setSetting('attractivenessModel', model)) throw new Error('保存できませんでした。端末の保存領域を確認してください');
+    attractivenessModel = model; memo.clear(); closeSheet(); route(); toast('研究用の採点基準を取り込みました');
+  } catch (err) { toast(err.message || '採点基準を読み込めませんでした'); }
+  finally { e.target.value = ''; }
+});
 
 // ---------- 撮影 ----------
 const cap = {
   el: $('#capture'), video: $('#camVideo'), canvas: $('#camCanvas'), status: $('#capStatus'),
-  ring: $('#guideRing'), dots: [...$('#capShots').children], flash: $('#capFlash'), hint: $('.cap-hint'), session: null, onCancel: null,
+  ring: $('#guideRing'), dots: [...$('#capShots').children], flash: $('#capFlash'), hint: $('.cap-hint'), session: null, controller: null, onCancel: null,
 };
 
 const HINT = '明るい場所で、メガネを外し、おでこを出すと正確に測れます';
 
 // 撮影画面を開く。options.onDone を渡さなければ、ふつうの測定（生え際の調整へ進む）
 async function openCapture(options = {}) {
+  if (cap.controller) return;
+  const controller = new AbortController();
+  cap.controller = controller;
   const { onDone = openHairline, onCancel = null, hint = HINT, capOpts = {} } = options;
   cap.el.hidden = false;
   document.body.style.overflow = 'hidden';
@@ -405,11 +468,13 @@ async function openCapture(options = {}) {
   cap.onCancel = onCancel;
   // 撮影の点（3つ）は、ふつうの測定のときだけ出す
   cap.dots[0].parentElement.hidden = capOpts.mode === 'turn-scan';
-  cap.session = await startCapture({
+  const session = await startCapture({
     video: cap.video,
     canvas: cap.canvas,
+    signal: controller.signal,
     opts: { focalFor, ...capOpts },
     onStatus: (s) => {
+      if (controller.signal.aborted) return;
       if (DEV && DEV.log.length > 600) DEV.log.splice(0, 200);
       if (DEV) DEV.log.push({ t: Math.round(performance.now()), code: s.code, a: s.angles && Object.fromEntries(Object.entries(s.angles).map(([k, v]) => [k, Math.round(v * 10) / 10])),
         d: s.distance && Math.round(s.distance), m: s.motion && Math.round(s.motion * 10000) / 10000, l: s.luma && Math.round(s.luma) });
@@ -417,29 +482,38 @@ async function openCapture(options = {}) {
       cap.status.classList.toggle('ok', s.code === 'hold');
     },
     onProgress: (done, frac, total = CAPTURE.shots) => {
+      if (controller.signal.aborted) return;
       const p = ((done + frac) / total) * 100;
       cap.ring.style.strokeDasharray = `${p.toFixed(1)} 100`;
     },
     onShot: (n) => {
+      if (controller.signal.aborted) return;
       cap.dots.forEach((d, i) => d.classList.toggle('on', i < n));
       cap.flash.classList.remove('go'); void cap.flash.offsetWidth; cap.flash.classList.add('go');
     },
     onDone: (res) => {
+      if (controller.signal.aborted) return;
       if (DEV && res.raw) DEV.send('capture', { mode: capOpts.mode || 'measure', log: DEV.log.splice(0), video: [res.raw.w, res.raw.h], focal: res.raw.focal, zScale: res.raw.zScale, calibrated: res.raw.calibrated, distance: res.snapshot.distance, faceWidth: res.faceWidth, raw: res.raw.shots });
       if (DEV && res.turn) DEV.send('turn-scan', { log: DEV.log.splice(0), ...res.turn });
       cap.onCancel = null;
       closeCapture(); onDone(res);
     },
     onError: (err) => {
+      if (controller.signal.aborted) return;
       if (DEV) DEV.send('error', { code: err.code, error: String(err.error), log: DEV.log.splice(0) });
       cap.onCancel = null;
       closeCapture(); toast(err.text); console.warn(err.error);
       onCancel?.();
     },
   });
+  if (controller.signal.aborted || cap.controller !== controller) { session?.stop(); return; }
+  cap.session = session;
 }
 
 function closeCapture() {
+  const controller = cap.controller;
+  cap.controller = null;
+  controller?.abort();
   cap.session?.stop();
   cap.session = null;
   cap.el.hidden = true;
@@ -452,7 +526,7 @@ $('#shootBtn').addEventListener('click', () => openCapture());
 // 1回撮って結果を返す（較正用）。やめたら null
 const captureOnce = (hint, capOpts) => new Promise((resolve) => openCapture({ hint, capOpts, onDone: resolve, onCancel: () => resolve(null) }));
 
-// ---------- カメラの較正（近く・遠くの2回） ----------
+// ---------- カメラの較正（顔を回すスキャン） ----------
 function openCalibSheet() {
   const cams = Object.entries(store.setting('focals') || {});
   openSheet(`<h2 id="sheetTitle">遠近の補正（カメラの較正）</h2>
@@ -486,7 +560,10 @@ async function runCalibration() {
   const fe = old ? gmean(old.focal / (old.zScale || 1), res.fe) : res.fe;
   const zs = old ? gmean(old.zScale || 1, res.zScale) : res.zScale;
   focals[key] = { focal: Math.round(fe * zs), zScale: Math.round(zs * 1000) / 1000, n: n + 1, sharp: Math.round(res.sharp * 100) / 100, at: new Date().toISOString() };
-  store.setSetting('focals', focals);
+  if (!store.setSetting('focals', focals)) {
+    toast('較正結果を保存できませんでした。記録を書き出して、端末の保存領域を確認してください');
+    return;
+  }
   memo.clear();
   route();
   toast(`較正しました（${n + 1}回分の平均・水平の画角 約${Math.round(fovDegrees(fe * zs, w, h).h)}°）`);
@@ -542,8 +619,10 @@ function openHairline({ points, shots, snapshot, raw }) {
       </div>
     </div>
     <div class="hairline-foot">
+      <p id="hlError" role="alert" class="small" hidden></p>
       <button class="btn block" type="button" id="hlOk">この位置で決定</button>
       <button class="btn ghost block" type="button" id="hlSkip">見えない・わからない（推定で測る）</button>
+      <button class="btn ghost block" type="button" id="hlCancel">今回の測定をやめる</button>
     </div>`;
   document.body.append(el);
 
@@ -601,11 +680,30 @@ function openHairline({ points, shots, snapshot, raw }) {
   requestAnimationFrame(layout);
   window.addEventListener('resize', layout);
 
-  const finish = (hairline) => {
+  const dispose = () => {
     window.removeEventListener('resize', layout);
     el.remove();
     snap.width = 0; snap.height = 0; // 撮影した画像を破棄
+  };
+  const finish = (hairline) => {
     const rec = store.add({ points, shots, hairline, version: VERSION, raw });
+    if (!rec) {
+      const error = $('#hlError', el);
+      error.textContent = '保存できませんでした。今回の測定はこの画面に残っています。端末の保存領域を確認して再試行するか、「今回の測定をやめる」で戻って記録を書き出してください。既存の記録は変更していません。';
+      error.hidden = false;
+      return;
+    }
+    let settingsSaved = true;
+    if (hairline.source === 'manual') {
+      const settings = { hairlineK: hairline.k };
+      if (autoK != null) {
+        const n = Number(store.setting('hairlineAutoBiasN')) || 0;
+        settings.hairlineAutoBiasK = (bias * n + (hairline.k - autoK)) / (n + 1);
+        settings.hairlineAutoBiasN = Math.min(n + 1, 8);
+      }
+      settingsSaved = store.setSettings(settings);
+    }
+    dispose();
     if (DEV) {
       const r = evaluate(rec);
       DEV.send('result', { rec, total: r.score.total, items: Object.fromEntries(Object.entries(r.score.items).map(([k, v]) => [k, { score: v.score, notes: v.notes }])),
@@ -613,20 +711,15 @@ function openHairline({ points, shots, snapshot, raw }) {
     }
     ui.tab = 'score'; ui.open.clear();
     if (location.hash === '#result' || !location.hash) route(); else location.hash = '#result';
-    toast(rec ? '測定しました' : '保存できませんでした');
+    toast(settingsSaved ? '測定しました' : '測定は保存しました。生え際の学習設定は保存できませんでした');
   };
   $('#hlOk', el).addEventListener('click', () => {
     const k = hairlineK(fp, tToY(t));
-    store.setSetting('hairlineK', k);
-    if (autoK != null) {
-      const n = Number(store.setting('hairlineAutoBiasN')) || 0;
-      store.setSetting('hairlineAutoBiasK', (bias * n + (k - autoK)) / (n + 1));
-      store.setSetting('hairlineAutoBiasN', Math.min(n + 1, 8)); // 直近8回ほどの平均
-    }
     if (DEV) DEV.send('hairline', { autoK, bias, finalK: k, savedK: saved ?? null, faceH });
     finish({ source: 'manual', k, auto: auto != null });
   });
   $('#hlSkip', el).addEventListener('click', () => finish({ source: 'estimated', k: 1 }));
+  $('#hlCancel', el).addEventListener('click', dispose);
 }
 
 // ---------- 起動 ----------
