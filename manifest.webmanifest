@@ -1,0 +1,17 @@
+{
+  "name": "FACE SCORE",
+  "short_name": "FACE SCORE",
+  "description": "顔の比率を採点し、似合う髪型・メガネを提案する個人用アプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090a",
+  "theme_color": "#09090a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

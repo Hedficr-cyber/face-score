@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self'; worker-src 'self' blob:; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#09090a">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FACE SCORE">
+<title>FACE SCORE</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app" class="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>FACE SCORE</div>
+    <button class="icon-btn" id="infoBtn" type="button" aria-label="このアプリについて">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r="0.6" class="fill"/></svg>
+    </button>
+  </header>
+  <main id="view" class="view" tabindex="-1"></main>
+  <nav class="tabbar" aria-label="メニュー">
+    <a class="tab" href="#result" data-tab="result">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1.2" class="fill"/></svg>
+      <span>結果</span>
+    </a>
+    <button class="tab-shoot" id="shootBtn" type="button" aria-label="測定する">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><ellipse cx="12" cy="12" rx="4" ry="5"/></svg>
+    </button>
+    <a class="tab" href="#history" data-tab="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16"/><path d="M6 15l4-5 3 3 5-7"/></svg>
+      <span>記録</span>
+    </a>
+  </nav>
+</div>
+
+<section id="capture" class="capture" hidden aria-label="撮影">
+  <video id="camVideo" class="cam" autoplay muted playsinline></video>
+  <canvas id="camCanvas" class="cam cam-overlay"></canvas>
+  <svg class="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <ellipse id="guideTrack" cx="50" cy="47" rx="27" ry="35"/>
+    <ellipse id="guideRing" cx="50" cy="47" rx="27" ry="35" pathLength="100"/>
+  </svg>
+  <div class="cap-top">
+    <button class="icon-btn glass" id="capClose" type="button" aria-label="撮影をやめる">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="cap-status" id="capStatus" role="status" aria-live="polite">カメラを準備しています</div>
+  </div>
+  <div class="cap-bottom">
+    <div class="shots" id="capShots" aria-label="撮影の進み具合"><i></i><i></i><i></i></div>
+    <p class="cap-hint">明るい場所で、メガネを外し、おでこを出すと正確に測れます</p>
+  </div>
+  <div class="flash" id="capFlash"></div>
+</section>
+
+<section id="sheet" class="sheet" hidden aria-modal="true" role="dialog" aria-labelledby="sheetTitle">
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel">
+    <div class="sheet-grip"></div>
+    <div id="sheetBody"></div>
+  </div>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
