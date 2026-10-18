@@ -104,6 +104,8 @@ svg .fill { fill: currentColor; stroke: none; }
 .chip { font-size: 12px; padding: 5px 11px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); }
 .chip.strong { color: var(--text); border-color: var(--line-2); }
 .chip b { font-weight: 600; color: var(--text); }
+button.chip { font-family: inherit; cursor: pointer; }
+.chip.warn { color: var(--accent); border-color: rgba(217, 199, 158, 0.45); background: var(--accent-2); }
 
 /* 総合点 */
 .hero { text-align: center; padding: 6px 0 4px; }
@@ -258,6 +260,8 @@ svg .fill { fill: currentColor; stroke: none; }
 .hairline-line .knob { position: absolute; right: 4%; top: 6px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #111; display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
 .hairline-line .knob svg { width: 18px; height: 18px; stroke-width: 2; }
 .hairline-line .tag { position: absolute; left: 8%; top: -4px; font-size: 11px; letter-spacing: 0.06em; color: var(--accent); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+.nudge { position: absolute; right: 12px; bottom: 12px; display: grid; gap: 8px; }
+.nudge .icon-btn { width: 44px; height: 44px; }
 .hairline-foot { padding: 10px 24px calc(var(--safe-b) + 22px); display: grid; gap: 10px; }
 
 /* シート */

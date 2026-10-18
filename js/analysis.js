@@ -1,6 +1,6 @@
 // 計測と採点。入力は正面にそろえた点（geometry.frontalize の points を平均したもの）。
 import { PAIRS, MIDLINE } from './mesh-data.js';
-import { SCORE, SHAPE, IRIS_MM } from './config.js';
+import { SCORE, SHAPE, NORM, IRIS_MM } from './config.js';
 import { dist2, mean } from './geometry.js';
 
 export const ITEM_NAMES = {
@@ -25,6 +25,14 @@ const REGION_WEIGHTS = { brow: 0.2, eye: 0.25, mouth: 0.2, jaw: 0.2, other: 0.15
 
 const gauss = (e, t) => 100 * Math.exp(-Math.LN2 * (e / t) ** 2);
 const rms = (arr) => Math.sqrt(mean(arr.map((v) => v * v)));
+
+// 平均顔（config.js の NORM）からのずれ：標準偏差の何倍か
+const zOf = (name, v) => (v - NORM[name].mean) / NORM[name].sd;
+// 9割の人が入る範囲（平均 ± 1.645 標準偏差）
+const range90 = (name, digits = 2) => {
+  const { mean: mu, sd } = NORM[name];
+  return `${(mu - 1.645 * sd).toFixed(digits)}〜${(mu + 1.645 * sd).toFixed(digits)}`;
+};
 
 // 中心線（x = a*y + b）を最小二乗で求め、点を鏡映する
 function midlineFit(P) {
@@ -99,6 +107,8 @@ export function measure(P, hairline) {
     thirds: { upper, middle, lower, total: upper + middle + lower, hairlineSet: hairSet },
     fifths, width, eyeW, inner, nose, mouth, upperLip, chinH, jaw, forehead, chinAngle,
     length: hairY - menY,
+    // 額の高さを眉〜鼻の下と同じとみなした顔の長さ（公開データの平均顔と同じ測り方。輪郭の点数に使う）
+    lengthK1: 2 * middle + lower,
     asymmetry,
     asymRegions,
     browTilt: heightDiff([300, 293, 334, 296, 336], [70, 63, 105, 66, 107]),
@@ -114,7 +124,7 @@ export function measure(P, hairline) {
   };
 }
 
-// 顔の形（近い順の確率）
+// 顔の形（近い順の確率）。生え際を指定したときは実際の長さを使う（平均顔の生え際は推定の位置と同じとみなす）
 export function faceShape(m) {
   const f = {
     length: m.length / m.width,
@@ -122,9 +132,8 @@ export function faceShape(m) {
     forehead: m.forehead / m.width,
     chin: m.chinAngle,
   };
-  const lenScale = m.thirds.hairlineSet ? SHAPE.scale.length : SHAPE.lengthScaleEstimated;
   const scores = Object.entries(SHAPE.prototypes).map(([key, p]) => {
-    const d2 = ((f.length - p.length) / lenScale) ** 2 + ((f.jaw - p.jaw) / SHAPE.scale.jaw) ** 2
+    const d2 = ((f.length - p.length) / SHAPE.scale.length) ** 2 + ((f.jaw - p.jaw) / SHAPE.scale.jaw) ** 2
       + ((f.forehead - p.forehead) / SHAPE.scale.forehead) ** 2 + ((f.chin - p.chin) / SHAPE.scale.chin) ** 2;
     return { key, name: p.name, w: Math.exp(-0.5 * d2) };
   });
@@ -170,41 +179,43 @@ export function scoreAll(m) {
     notes: thirdsNotes(t3),
   };
 
-  // 横のバランス
+  // 横のバランス（平均顔との近さ：目の間と、目尻から輪郭までを、目の幅に対する比で比べる）
   const fsum = m.fifths.reduce((s, v) => s + v, 0);
   const fparts = m.fifths.map((v) => v / fsum);
-  const fifthsDev = rms(fparts.map((v) => (v - I.fifths) / I.fifths));
+  const innerR = m.inner / m.eyeW, outerR = (m.fifths[0] + m.fifths[4]) / 2 / m.eyeW;
+  const fz = { innerToEye: zOf('innerToEye', innerR), outerToEye: zOf('outerToEye', outerR) };
+  const fifthsDev = rms(Object.values(fz));
   items.fifths = {
     score: gauss(fifthsDev, T.fifths),
     value: fifthsDev,
     parts: fparts,
-    notes: fifthsNotes(m),
+    ratios: { innerToEye: innerR, outerToEye: outerR },
+    z: fz,
+    notes: fifthsNotes(innerR, outerR, fz),
   };
 
-  // パーツの配置
+  // パーツの配置（平均顔との近さ）
   const r1 = m.nose / m.inner, r2 = m.mouth / m.nose, r3 = m.upperLip / m.chinH;
-  const partsDev = rms([(r1 - I.noseToInner) / I.noseToInner, (r2 - I.mouthToNose) / I.mouthToNose, (r3 - I.lipToChin) / I.lipToChin]);
+  const pz = { noseToInner: zOf('noseToInner', r1), mouthToNose: zOf('mouthToNose', r2), lipToChin: zOf('lipToChin', r3) };
+  const partsDev = rms(Object.values(pz));
   items.parts = {
     score: gauss(partsDev, T.parts),
     value: partsDev,
     ratios: { noseToInner: r1, mouthToNose: r2, lipToChin: r3 },
-    notes: [
-      `小鼻の幅は目と目の間の ${r1.toFixed(2)} 倍（理想 1.00）。`,
-      `口の幅は小鼻の幅の ${r2.toFixed(2)} 倍（理想 1.50）。`,
-      `鼻の下〜口：口〜あご ＝ 1：${(1 / r3).toFixed(2)}（理想 1：2）。`,
-    ],
+    z: pz,
+    notes: partsNotes(r1, r2, r3, pz),
   };
 
-  // 輪郭（標準顔＝卵型からの離れ具合）
-  const R = SHAPE.reference;
-  const lenR = m.length / m.width, jawR = m.jaw / m.width;
-  const comps = [(jawR - R.jaw) / R.jaw, (m.chinAngle - R.chin) / R.chin];
-  if (t3.hairlineSet) comps.unshift((lenR - R.length) / R.length);
-  const contourDev = rms(comps);
+  // 輪郭（平均顔＝卵型との近さ）。顔の長さは平均顔と同じ測り方（額の高さは縦のバランスで見る）
+  const lenR = m.lengthK1 / m.width, jawR = m.jaw / m.width;
+  const cz = { length: zOf('length', lenR), jaw: zOf('jaw', jawR), chin: zOf('chin', m.chinAngle) };
+  const contourDev = rms(Object.values(cz));
   items.contour = {
     score: gauss(contourDev, T.contour),
     value: contourDev,
-    notes: contourNotes(lenR, jawR, m.chinAngle, t3.hairlineSet),
+    ratios: { length: lenR, jaw: jawR, chin: m.chinAngle },
+    z: cz,
+    notes: contourNotes(lenR, jawR, m.chinAngle, cz),
   };
 
   const W = SCORE.weights;
@@ -233,28 +244,45 @@ function thirdsNotes(t) {
   return notes;
 }
 
-function fifthsNotes(m) {
-  const r = m.inner / m.eyeW;
-  const notes = [`目と目の間は目の幅の ${r.toFixed(2)} 倍（理想 1.00）。`];
-  if (r > 1.12) notes.push('目の間がやや広め。メガネはブリッジが太め・濃い色のものが合う。');
-  if (r < 0.9) notes.push('目の間がやや狭め。メガネはブリッジが細い・透明なものが合う。');
-  const outer = (m.fifths[0] + m.fifths[4]) / 2 / m.eyeW;
-  notes.push(`目尻から輪郭までは目の幅の ${outer.toFixed(2)} 倍。`);
+// 平均顔の説明。「平均 x（9割の人が a〜b）」
+const avgText = (name, digits = 2) => `平均 ${NORM[name].mean.toFixed(digits)}、9割の人が ${range90(name, digits)}`;
+
+function fifthsNotes(inner, outer, z) {
+  const notes = [`目と目の間は目の幅の ${inner.toFixed(2)} 倍（東アジア人男性の${avgText('innerToEye')}）。`];
+  if (z.innerToEye > 1) notes.push('目の間が平均より広め。メガネはブリッジが太め・濃い色のものが合う。');
+  if (z.innerToEye < -1) notes.push('目の間が平均より狭め。メガネはブリッジが細い・透明なものが合う。');
+  notes.push(`目尻から輪郭までは目の幅の ${outer.toFixed(2)} 倍（${avgText('outerToEye')}）。`);
+  if (z.outerToEye > 1) notes.push('目に対して顔の横幅が広め。サイドを抑えた髪型で横幅が締まって見える。');
+  if (z.outerToEye < -1) notes.push('目に対して顔の横幅が狭め。サイドに少し厚みを出すとつり合う。');
   return notes;
 }
 
-function contourNotes(lenR, jawR, chin, hairSet) {
-  const R = SHAPE.reference;
-  const notes = [];
-  if (hairSet) {
-    notes.push(`顔の長さは幅の ${lenR.toFixed(2)} 倍（卵型の目安 ${R.length.toFixed(2)}）。`);
-    if (lenR > R.length * 1.05) notes.push('縦に長め。トップの高さを抑え、横に厚みを出すと整う。');
-    if (lenR < R.length * 0.95) notes.push('縦に短め。トップに高さを出すと整う。');
-  }
-  notes.push(`あごの幅は顔の幅の ${Math.round(jawR * 100)}％（卵型の目安 ${Math.round(R.jaw * 100)}％）。`);
-  if (jawR > R.jaw * 1.05) notes.push('エラがやや張っている。丸みのあるメガネやサイドの丸みでやわらぐ。');
-  if (jawR < R.jaw * 0.95) notes.push('あごが細め。下側に重心のあるメガネや、サイドに少し厚みのある髪型が合う。');
-  notes.push(`あご先の角度は ${Math.round(chin)}°（卵型の目安 ${R.chin}°）。`);
+function partsNotes(nose, mouth, lip, z) {
+  const notes = [`小鼻の幅は目と目の間の ${nose.toFixed(2)} 倍（${avgText('noseToInner')}）。`];
+  if (z.noseToInner > 1) notes.push('小鼻が平均より広め。');
+  if (z.noseToInner < -1) notes.push('小鼻が平均より細め。');
+  notes.push(`口の幅は小鼻の幅の ${mouth.toFixed(2)} 倍（${avgText('mouthToNose')}）。`);
+  if (z.mouthToNose > 1) notes.push('口が平均より大きめ。');
+  if (z.mouthToNose < -1) notes.push('口が平均より小さめ。');
+  const { mean: mu, sd } = NORM.lipToChin;
+  notes.push(`鼻の下〜口：口〜あご ＝ 1：${(1 / lip).toFixed(2)}（平均 1：${(1 / mu).toFixed(2)}、9割の人が 1：${(1 / (mu + 1.645 * sd)).toFixed(2)}〜1：${(1 / (mu - 1.645 * sd)).toFixed(2)}）。`);
+  if (z.lipToChin > 1) notes.push('あごに対して鼻の下が長め。');
+  if (z.lipToChin < -1) notes.push('鼻の下に対してあごが長め。');
+  return notes;
+}
+
+function contourNotes(lenR, jawR, chin, z) {
+  const notes = [`顔の縦横比は ${lenR.toFixed(2)}（額の高さを眉〜鼻の下と同じとみなした値。${avgText('length')}）。`];
+  if (z.length > 1) notes.push('縦に長め。トップの高さを抑え、横に厚みを出すと整う。');
+  if (z.length < -1) notes.push('縦に短め。トップに高さを出すと整う。');
+  const { mean: jm, sd: js } = NORM.jaw;
+  notes.push(`あごの幅は顔の幅の ${Math.round(jawR * 100)}％（平均 ${Math.round(jm * 100)}％、9割の人が ${Math.round((jm - 1.645 * js) * 100)}〜${Math.round((jm + 1.645 * js) * 100)}％）。`);
+  if (z.jaw > 1) notes.push('エラが平均より張っている。丸みのあるメガネやサイドの丸みでやわらぐ。');
+  if (z.jaw < -1) notes.push('あごが平均より細め。下側に重心のあるメガネや、サイドに少し厚みのある髪型が合う。');
+  const [c0, c1] = range90('chin', 0).split('〜');
+  notes.push(`あご先の角度は ${Math.round(chin)}°（平均 ${Math.round(NORM.chin.mean)}°、9割の人が ${c0}〜${c1}°）。`);
+  if (z.chin > 1) notes.push('あご先が平均より丸く広め。');
+  if (z.chin < -1) notes.push('あご先が平均よりとがっている。');
   return notes;
 }
 

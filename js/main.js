@@ -4,8 +4,12 @@ import { rankHair, rankGlasses, frameSize } from './advice.js';
 import { portraitSVG, welcomeMark } from './portrait.js';
 import { chartSVG } from './chart.js';
 import { startCapture } from './capture.js';
-import { toFaceAxes } from './geometry.js';
-import { SCORE, CAPTURE, PROVISIONAL } from './config.js';
+import { loadLandmarker } from './detector.js';
+import { toFaceAxes, averagePoints } from './geometry.js';
+import { detectHairline } from './hairline.js';
+import { frontalFromRaw, solveFocalFromTurns, fovDegrees } from './calibration.js';
+import { unpackRaw } from './store.js';
+import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -22,18 +26,35 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
 
 const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false };
 
+// ---------- カメラの焦点距離（端末と解像度ごと。較正していなければ想定値） ----------
+const camKey = (w, h) => `${Math.max(w, h)}x${Math.min(w, h)}`;
+function focalFor(w, h) {
+  const cal = (store.setting('focals') || {})[camKey(w, h)];
+  return cal ? { focal: cal.focal, zScale: cal.zScale || 1, calibrated: true } : { focal: CAMERA.focalRatio * Math.max(w, h), zScale: 1, calibrated: false };
+}
+
 // ---------- 計算（記録ごとに一度だけ） ----------
 const memo = new Map();
 function evaluate(rec) {
   if (memo.has(rec.id)) return memo.get(rec.id);
-  const a = analyze(rec.points, rec.hairline);
+  // v0.2.0 以降の記録は生の点から、いまの焦点距離で遠近を補正し直す
+  let points = rec.points, shotPoints = rec.shots, calibrated = null;
+  if (rec.raw) {
+    const cam = focalFor(rec.raw.w, rec.raw.h);
+    calibrated = cam.calibrated;
+    shotPoints = rec.raw.shots.map((s) => frontalFromRaw(unpackRaw(s), rec.raw.w, rec.raw.h, cam.focal, cam.zScale));
+    points = averagePoints(shotPoints);
+  }
+  const a = analyze(points, rec.hairline);
   let spread = null;
-  if (rec.shots && rec.shots.length > 1) {
-    const totals = rec.shots.map((p) => analyze(p, rec.hairline).score.total);
+  if (shotPoints && shotPoints.length > 1) {
+    const totals = shotPoints.map((p) => analyze(p, rec.hairline).score.total);
     spread = (Math.max(...totals) - Math.min(...totals)) / 2;
   }
   const result = {
     ...a,
+    points,
+    calibrated,
     spread,
     hair: rankHair(a.measures, a.shape, a.score),
     glasses: rankGlasses(a.measures, a.shape),
@@ -80,6 +101,7 @@ function renderWelcome() {
     <h1>顔を測ってみましょう</h1>
     <p>正面から3回撮って平均し、比率を採点します。<br>写真は保存せず、どこにも送りません。</p>
     <button class="btn" type="button" data-act="shoot">測定をはじめる</button>
+    ${Object.keys(store.setting('focals') || {}).length ? '' : '<div style="margin-top:12px"><button class="btn ghost" type="button" data-act="calib">先にカメラを較正する（約30秒）</button></div>'}
     <ul class="tips">
       <li><span>01</span>明るい場所で、顔に影ができないように</li>
       <li><span>02</span>メガネを外し、前髪を上げておでこを出す</li>
@@ -96,10 +118,13 @@ function renderResult(rec, { latest }) {
   const shape = r.shape;
   const second = shape.ranked[1];
   const chips = [
-    `<span class="chip strong"><b>${esc(shape.main.name)}</b>${shape.main.p < 0.6 ? '寄り' : ''}（調整中）</span>`,
+    `<span class="chip strong"><b>${esc(shape.main.name)}</b>${shape.main.p < 0.6 ? '寄り' : ''}</span>`,
     second && second.p >= 0.15 ? `<span class="chip">${esc(second.name)} ${Math.round(second.p * 100)}%</span>` : '',
     r.spread != null ? `<span class="chip">ぶれ ±${one(r.spread)}</span>` : '',
     `<span class="chip">生え際 ${m.thirds.hairlineSet ? '指定' : '推定'}</span>`,
+    r.calibrated == null ? '<span class="chip">遠近補正なし（v0.1 の記録）</span>'
+      : r.calibrated ? '<span class="chip">遠近補正 較正済み</span>'
+        : '<button class="chip warn" type="button" data-act="calib">遠近補正 未較正 ›</button>',
   ].join('');
 
   view.innerHTML = `
@@ -155,13 +180,13 @@ function scoreTab(rec, r) {
   return `
     <div class="label">Portrait</div>
     <div class="card portrait">
-      ${portraitSVG(rec.points, m, ui.portrait)}
+      ${portraitSVG(r.points, m, ui.portrait)}
       <div class="portrait-tools"><div class="seg mini">${modes.map(([k, t]) =>
         `<button type="button" class="${ui.portrait === k ? 'on' : ''}" data-portrait="${k}">${t}</button>`).join('')}</div></div>
     </div>
     <div class="label">Breakdown</div>
     <div class="items">${items}</div>
-    <p class="small" style="margin-top:14px">点数は顔の比率を美容でよく使われる基準と比べたものです。魅力そのものの評価ではありません。<br>「調整中」の項目は、基準値を実際の顔のデータで見直している途中です（古典的な基準は平均的な日本人の顔でも外れやすく、低めに出ます）。</p>
+    <p class="small" style="margin-top:14px">左右対称・縦のバランスは「左右がそろう・縦3等分」との差、横のバランス・パーツの配置・輪郭は「平均顔（東アジア人男性 204 人の公開データを同じ方法で測った平均）との近さ」で採点しています。平均的な人がおよそ 50 点です。魅力そのものの評価ではありません。</p>
   `;
 }
 
@@ -204,7 +229,7 @@ function eyewearTab(r) {
         <div><b>${s.lens[0]}–${s.lens[1]}</b><span>レンズ幅 mm</span></div>
       </div>
       <p class="small" style="margin:0">${esc(s.bridge)}<br>黒目の大きさから推定した目安です（±5% 程度）。メガネの「52□18」のような表記は、レンズ幅□ブリッジ幅です。</p>
-      <p class="small" style="margin:6px 0 0">顔の形の判定は基準を調整中のため、順位は目安です。</p>
+      <p class="small" style="margin:6px 0 0">形の相性は美容室・メガネ店で定番の考え方にもとづく目安です。顔の形の判定は平均顔のデータにもとづきます。</p>
     </div>
     <div style="height:10px"></div>
     ${rankList(list, true)}`;
@@ -292,6 +317,7 @@ view.addEventListener('click', (e) => {
   }
   const act = t.dataset.act;
   if (act === 'shoot') openCapture();
+  if (act === 'calib') openCalibSheet();
   if (act === 'allHair') { ui.allHair = true; rerenderTab(); }
   if (act === 'export') exportData();
   if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => { store.clear(); memo.clear(); route(); toast('削除しました'); });
@@ -337,7 +363,8 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   <ul>
     <li>顔の478点の位置をスマホの中で検出し、顔の向きを正面にそろえてから測ります。</li>
     <li>左右対称 30%、縦のバランス 20%、横のバランス 20%、パーツの配置 15%、輪郭 15% の重みで総合点にします。</li>
-    <li>縦3等分・横5等分などは美容でよく使われる基準です。点数は手加減なしで、基準からのずれをそのまま点にしています。</li>
+    <li>左右対称・縦のバランスは「左右がそろう・縦3等分」との差で採点します。</li>
+    <li>横のバランス・パーツの配置・輪郭は「平均顔との近さ」で採点します。平均顔は、公開データ FairFace（CC BY 4.0）の東アジア人男性 20〜39歳・正面・無表情の 204 人を、このアプリと同じ方法で測った平均です。平均的な人がおよそ 50 点になる目盛りで、手加減はしていません。</li>
     <li>比率の点数であり、魅力そのものや人としての価値の評価ではありません。</li>
   </ul>
   <h3>精度について</h3>
@@ -345,8 +372,9 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>角度・照明・表情・前髪で数値は少し変わります。3回撮って平均し、そのぶれ幅を「ぶれ」に表示しています。</li>
     <li>生え際は顔の点に含まれないため、撮影後に自分で合わせます。合わせないときは推定値を使い、縦のバランスは中と下だけで採点します。</li>
     <li>メガネのサイズは黒目の大きさ（平均 11.7mm）から推定した目安です。</li>
-    <li>横のバランス・パーツの配置・輪郭と顔の形は、基準値を実際の顔のデータで調整している途中です。</li>
+    <li>近くから撮ったときの遠近の歪み（鼻が大きく・輪郭が細く写る）は、顔の点の奥行きとカメラの画角から取り除いています。画角は端末ごとに、Face ID の登録のように顔を上下左右に回して較正します。較正し直すと、過去の記録も新しい値で計算し直します。</li>
   </ul>
+  <div class="actions" style="margin-top:10px"><button class="btn ghost block" type="button" id="infoCalib">カメラを較正する（遠近の補正）</button></div>
   <h3>データ</h3>
   <ul>
     <li>写真は保存せず、どこにも送りません。保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。</li>
@@ -354,31 +382,42 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   </ul>
   <p class="small" style="margin-top:18px">バージョン ${VERSION}・3枚×${CAPTURE.framesPerShot}フレームの平均</p>
 `));
+$('#sheet').addEventListener('click', (e) => { if (e.target.id === 'infoCalib') { closeSheet(); openCalibSheet(); } });
 
 // ---------- 撮影 ----------
 const cap = {
   el: $('#capture'), video: $('#camVideo'), canvas: $('#camCanvas'), status: $('#capStatus'),
-  ring: $('#guideRing'), dots: [...$('#capShots').children], flash: $('#capFlash'), session: null,
+  ring: $('#guideRing'), dots: [...$('#capShots').children], flash: $('#capFlash'), hint: $('.cap-hint'), session: null, onCancel: null,
 };
 
-async function openCapture() {
+const HINT = '明るい場所で、メガネを外し、おでこを出すと正確に測れます';
+
+// 撮影画面を開く。options.onDone を渡さなければ、ふつうの測定（生え際の調整へ進む）
+async function openCapture(options = {}) {
+  const { onDone = openHairline, onCancel = null, hint = HINT, capOpts = {} } = options;
   cap.el.hidden = false;
   document.body.style.overflow = 'hidden';
   cap.dots.forEach((d) => d.classList.remove('on'));
   cap.ring.style.strokeDasharray = '0 100';
   cap.status.textContent = 'カメラを準備しています';
   cap.status.classList.remove('ok');
+  cap.hint.textContent = hint;
+  cap.onCancel = onCancel;
+  // 撮影の点（3つ）は、ふつうの測定のときだけ出す
+  cap.dots[0].parentElement.hidden = capOpts.mode === 'turn-scan';
   cap.session = await startCapture({
     video: cap.video,
     canvas: cap.canvas,
+    opts: { focalFor, ...capOpts },
     onStatus: (s) => {
       if (DEV && DEV.log.length > 600) DEV.log.splice(0, 200);
-      if (DEV) DEV.log.push({ t: Math.round(performance.now()), code: s.code, a: s.angles && Object.fromEntries(Object.entries(s.angles).map(([k, v]) => [k, Math.round(v * 10) / 10])) });
+      if (DEV) DEV.log.push({ t: Math.round(performance.now()), code: s.code, a: s.angles && Object.fromEntries(Object.entries(s.angles).map(([k, v]) => [k, Math.round(v * 10) / 10])),
+        d: s.distance && Math.round(s.distance), m: s.motion && Math.round(s.motion * 10000) / 10000, l: s.luma && Math.round(s.luma) });
       cap.status.textContent = s.text;
       cap.status.classList.toggle('ok', s.code === 'hold');
     },
-    onProgress: (done, frac) => {
-      const p = ((done + frac) / CAPTURE.shots) * 100;
+    onProgress: (done, frac, total = CAPTURE.shots) => {
+      const p = ((done + frac) / total) * 100;
       cap.ring.style.strokeDasharray = `${p.toFixed(1)} 100`;
     },
     onShot: (n) => {
@@ -386,12 +425,16 @@ async function openCapture() {
       cap.flash.classList.remove('go'); void cap.flash.offsetWidth; cap.flash.classList.add('go');
     },
     onDone: (res) => {
-      if (DEV) DEV.send('capture', { log: DEV.log.splice(0), video: [cap.video.videoWidth, cap.video.videoHeight], snapshotLandmarks: res.snapshot.landmarks });
-      closeCapture(); openHairline(res);
+      if (DEV && res.raw) DEV.send('capture', { mode: capOpts.mode || 'measure', log: DEV.log.splice(0), video: [res.raw.w, res.raw.h], focal: res.raw.focal, zScale: res.raw.zScale, calibrated: res.raw.calibrated, distance: res.snapshot.distance, faceWidth: res.faceWidth, raw: res.raw.shots });
+      if (DEV && res.turn) DEV.send('turn-scan', { log: DEV.log.splice(0), ...res.turn });
+      cap.onCancel = null;
+      closeCapture(); onDone(res);
     },
     onError: (err) => {
       if (DEV) DEV.send('error', { code: err.code, error: String(err.error), log: DEV.log.splice(0) });
+      cap.onCancel = null;
       closeCapture(); toast(err.text); console.warn(err.error);
+      onCancel?.();
     },
   });
 }
@@ -403,13 +446,60 @@ function closeCapture() {
   document.body.style.overflow = '';
 }
 
-$('#capClose').addEventListener('click', closeCapture);
-$('#shootBtn').addEventListener('click', openCapture);
+$('#capClose').addEventListener('click', () => { const c = cap.onCancel; cap.onCancel = null; closeCapture(); c?.(); });
+$('#shootBtn').addEventListener('click', () => openCapture());
+
+// 1回撮って結果を返す（較正用）。やめたら null
+const captureOnce = (hint, capOpts) => new Promise((resolve) => openCapture({ hint, capOpts, onDone: resolve, onCancel: () => resolve(null) }));
+
+// ---------- カメラの較正（近く・遠くの2回） ----------
+function openCalibSheet() {
+  const cams = Object.entries(store.setting('focals') || {});
+  openSheet(`<h2 id="sheetTitle">遠近の補正（カメラの較正）</h2>
+    <p>顔に近いカメラで撮ると、鼻が大きく・輪郭が細く写ります。FACE SCORE は顔の点の奥行きを使ってこの歪みを取り除きますが、そのためにカメラの画角を知る必要があります。</p>
+    <p>Face ID の登録のように、顔を<b>正面・左右・上下</b>へゆっくり回します。横を向くと近い側の頬は大きく・遠い側は小さく写るので、どの向きから正面に戻しても同じ形になる画角を計算で求めます（メジャーは不要）。端末ごとに1回だけ行います。</p>
+    <ul><li>ふだん測るときと同じ距離で構える（スマホなら腕を軽く伸ばす）</li><li>案内に合わせて、正面 → 横 → 反対の横 → 上か下 → 反対 の順に向く</li><li>口を閉じ、目を開けたまま、首だけをゆっくり回す</li></ul>
+    <p class="small">Face ID の奥行きセンサーはブラウザからは使えないため、ふつうのカメラの映像から計算します。</p>
+    ${cams.length ? `<p class="small">較正済み：${cams.map(([k, v]) => `${esc(k)}（水平 ${Math.round(fovDegrees(v.focal, ...k.split('x').map(Number)).h)}°・${esc(String(v.at || '').slice(0, 10))}）`).join('、')}</p>` : ''}
+    <div class="actions" style="margin-top:18px"><button class="btn block" type="button" id="calibStart">較正をはじめる</button>
+    <button class="btn ghost block" type="button" data-close>あとで</button></div>`);
+  $('#calibStart').addEventListener('click', () => { closeSheet(); runCalibration(); }, { once: true });
+}
+
+// Face ID の登録のように顔を上下左右に回して、カメラの画角と奥行きの倍率を求める
+async function runCalibration() {
+  const res0 = await captureOnce('ふだん測るときと同じ距離で構え、案内に合わせてゆっくり顔を回してください', {
+    mode: 'turn-scan', minFaceWidth: 0.22, maxFaceWidth: 0.85,
+  });
+  if (!res0) return;
+  const { w, h, views } = res0.turn;
+  toast('計算しています…');
+  await new Promise((r) => setTimeout(r, 50));
+  const res = solveFocalFromTurns(views, w, h);
+  if (DEV) DEV.send('calib', { method: 'turn-scan', w, h, ...res, angles: res0.turn.angles });
+  if (res.atEdge || res.sharp < 1.04) { toast('うまく求められませんでした。もう少し大きく顔を回して、やり直してください'); return; }
+  // 同じカメラで較正し直したときは、これまでの結果と平均してぶれを減らす（直近5回ぶんの重み）
+  const focals = { ...(store.setting('focals') || {}) };
+  const key = camKey(w, h), old = focals[key];
+  const n = old ? Math.min(old.n || 1, 4) : 0;
+  const gmean = (a, b) => Math.exp((n * Math.log(a) + Math.log(b)) / (n + 1));
+  const fe = old ? gmean(old.focal / (old.zScale || 1), res.fe) : res.fe;
+  const zs = old ? gmean(old.zScale || 1, res.zScale) : res.zScale;
+  focals[key] = { focal: Math.round(fe * zs), zScale: Math.round(zs * 1000) / 1000, n: n + 1, sharp: Math.round(res.sharp * 100) / 100, at: new Date().toISOString() };
+  store.setSetting('focals', focals);
+  memo.clear();
+  route();
+  toast(`較正しました（${n + 1}回分の平均・水平の画角 約${Math.round(fovDegrees(fe * zs, w, h).h)}°）`);
+}
 
 // ---------- 生え際の調整 ----------
-function openHairline({ points, shots, snapshot }) {
-  const { canvas: snap, landmarks: lm, fit, width: w, height: h } = snapshot;
-  const fp = toFaceAxes(lm, w, h).map(fit.apply);
+function openHairline({ points, shots, snapshot, raw }) {
+  const { canvas: snap, landmarks: lm, corrected: lmc, fit, width: w, height: h, scaleAt } = snapshot;
+  // 正面の座標は遠近を補正した点から求めている。画面（元の画像）との行き来は額の点（10番）の補正倍率で行う
+  const fp = toFaceAxes(lmc, w, h).map(fit.apply);
+  const s10 = scaleAt(lmc[10].z); // lmc の z は較正の倍率をかけたもの
+  const toCorrected = (ix, iy) => [w / 2 + (ix - w / 2) * s10, h / 2 + (iy - h / 2) * s10];
+  const toOriginal = (cx_, cy_) => [w / 2 + (cx_ - w / 2) / s10, h / 2 + (cy_ - h / 2) / s10];
   const saved = store.setting('hairlineK');
   const k0 = Number.isFinite(saved) ? saved : 1;
 
@@ -418,25 +508,38 @@ function openHairline({ points, shots, snapshot }) {
   const p10 = px(10), p152 = px(152);
   let ux = p10[0] - p152[0], uy = p10[1] - p152[1];
   const ul = Math.hypot(ux, uy); ux /= ul; uy /= ul;
-  const z10 = -lm[10].z * w;
+  const z10 = -lmc[10].z * w;
 
   // 正面座標の y ⇔ 画像上の軸上の位置 t
   const yToT = (yF) => {
     const a = fit.invert([fp[10][0], yF, fp[10][2]]);
-    return (a[0] - p10[0]) * ux + (-a[1] - p10[1]) * uy;
+    const [ix, iy] = toOriginal(a[0], -a[1]);
+    return (ix - p10[0]) * ux + (iy - p10[1]) * uy;
   };
-  const tToY = (t) => fit.apply([p10[0] + ux * t, -(p10[1] + uy * t), z10])[1];
+  const tToY = (t) => {
+    const [qx, qy] = toCorrected(p10[0] + ux * t, p10[1] + uy * t);
+    return fit.apply([qx, -qy, z10])[1];
+  };
+
+  // 最初の線の位置：肌と髪の色の切り替わりから自動で推定 → だめなら前回の位置 → だめなら比率の推定
+  let auto = null;
+  try { auto = detectHairline(snap, lm, w, h); } catch (e) { auto = null; }
+  const startLabel = auto != null ? '自動で推定した位置' : Number.isFinite(saved) ? '前回の位置' : '推定の位置';
 
   const el = document.createElement('section');
   el.className = 'hairline';
   el.innerHTML = `
     <div class="hairline-head">
       <h2>生え際の位置</h2>
-      <p>線を上下に動かして、髪の生え始めに合わせてください</p>
+      <p>線が髪の生え始めに合っているか確かめて、ずれていれば動かしてください</p>
     </div>
     <div class="hairline-stage" id="hlStage">
       <canvas id="hlCanvas"></canvas>
-      <div class="hairline-line" id="hlLine"><span class="tag">${Number.isFinite(saved) ? '前回の位置' : '推定の位置'}</span><span class="knob">${icon.updown}</span></div>
+      <div class="hairline-line" id="hlLine"><span class="tag">${startLabel}</span><span class="knob">${icon.updown}</span></div>
+      <div class="nudge">
+        <button class="icon-btn glass" type="button" data-nudge="1" aria-label="少し上へ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="icon-btn glass" type="button" data-nudge="-1" aria-label="少し下へ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      </div>
     </div>
     <div class="hairline-foot">
       <button class="btn block" type="button" id="hlOk">この位置で決定</button>
@@ -448,7 +551,10 @@ function openHairline({ points, shots, snapshot }) {
   const faceH = Math.hypot(p10[0] - p152[0], p10[1] - p152[1]);
   const cx = (lm[234].x + lm[454].x) / 2 * w;
   let crop;
-  let t = yToT(hairlineY(fp, k0));
+  // 自動推定は、本人がこれまでに線を直した量（平均）だけ寄せる。直すたびに学ぶ
+  const bias = Number(store.setting('hairlineAutoBiasK')) || 0;
+  const autoK = auto != null ? hairlineK(fp, tToY(auto)) : null;
+  let t = autoK != null ? yToT(hairlineY(fp, autoK + bias)) : yToT(hairlineY(fp, k0));
 
   function layout() {
     const dpr = window.devicePixelRatio || 1;
@@ -483,8 +589,15 @@ function openHairline({ points, shots, snapshot }) {
     t = Math.max(-faceH * 0.15, Math.min(faceH * 0.8, nt));
     place();
   };
-  stage.addEventListener('pointerdown', (e) => { stage.setPointerCapture(e.pointerId); drag(e); });
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('[data-nudge]')) return;
+    stage.setPointerCapture(e.pointerId); drag(e);
+  });
   stage.addEventListener('pointermove', (e) => { if (stage.hasPointerCapture(e.pointerId)) drag(e); });
+  el.querySelectorAll('[data-nudge]').forEach((b) => b.addEventListener('click', () => {
+    t = Math.max(-faceH * 0.15, Math.min(faceH * 0.8, t + Number(b.dataset.nudge) * faceH * 0.005));
+    place();
+  }));
   requestAnimationFrame(layout);
   window.addEventListener('resize', layout);
 
@@ -492,7 +605,7 @@ function openHairline({ points, shots, snapshot }) {
     window.removeEventListener('resize', layout);
     el.remove();
     snap.width = 0; snap.height = 0; // 撮影した画像を破棄
-    const rec = store.add({ points, shots, hairline, version: VERSION });
+    const rec = store.add({ points, shots, hairline, version: VERSION, raw });
     if (DEV) {
       const r = evaluate(rec);
       DEV.send('result', { rec, total: r.score.total, items: Object.fromEntries(Object.entries(r.score.items).map(([k, v]) => [k, { score: v.score, notes: v.notes }])),
@@ -505,7 +618,13 @@ function openHairline({ points, shots, snapshot }) {
   $('#hlOk', el).addEventListener('click', () => {
     const k = hairlineK(fp, tToY(t));
     store.setSetting('hairlineK', k);
-    finish({ source: 'manual', k });
+    if (autoK != null) {
+      const n = Number(store.setting('hairlineAutoBiasN')) || 0;
+      store.setSetting('hairlineAutoBiasK', (bias * n + (k - autoK)) / (n + 1));
+      store.setSetting('hairlineAutoBiasN', Math.min(n + 1, 8)); // 直近8回ほどの平均
+    }
+    if (DEV) DEV.send('hairline', { autoK, bias, finalK: k, savedK: saved ?? null, faceH });
+    finish({ source: 'manual', k, auto: auto != null });
   });
   $('#hlSkip', el).addEventListener('click', () => finish({ source: 'estimated', k: 1 }));
 }
@@ -513,6 +632,10 @@ function openHairline({ points, shots, snapshot }) {
 // ---------- 起動 ----------
 window.addEventListener('hashchange', route);
 route();
+
+// 顔の検出を手が空いたときに先に準備しておく（測定ボタンを押してからの待ち時間を減らす）
+const warmUp = () => loadLandmarker().catch(() => {});
+if ('requestIdleCallback' in window) requestIdleCallback(warmUp, { timeout: 4000 }); else setTimeout(warmUp, 1500);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -1,6 +1,6 @@
 // 髪型・メガネの似合い度（顔の形との相性＋比率をどれだけ整えるか）
 import { HAIR, GLASSES } from './catalog.js';
-import { SHAPE } from './config.js';
+import { SHAPE, NORM } from './config.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const gauss = (e, t) => 100 * Math.exp(-Math.LN2 * (e / t) ** 2);
@@ -9,13 +9,13 @@ function compat(item, shape) {
   return shape.ranked.reduce((s, r) => s + r.p * item.fit[r.key], 0);
 }
 
-// 顔の特徴を −1.5〜1.5 の「どちらに寄っているか」にする
+// 顔の特徴を −1.5〜1.5 の「どちらに寄っているか」にする。
+// 縦横比・あご幅は平均顔の標準偏差で測る（1 ＝ 平均から標準偏差 1 つ分）。顔の縦横比は額を平均的な高さとみなした値（lengthK1）で比べる。
 function leanings(m) {
-  const R = SHAPE.reference;
   const t = m.thirds;
   return {
-    length: t.hairlineSet ? clamp((m.length / m.width / R.length - 1) / 0.06, -1.5, 1.5) : 0,
-    jaw: clamp((m.jaw / m.width / R.jaw - 1) / 0.05, -1.5, 1.5),
+    length: clamp((m.lengthK1 / m.width - NORM.length.mean) / NORM.length.sd, -1.5, 1.5),
+    jaw: clamp((m.jaw / m.width - NORM.jaw.mean) / NORM.jaw.sd, -1.5, 1.5),
     forehead: t.hairlineSet ? clamp((t.upper / t.total - 1 / 3) / 0.03, -1.5, 1.5) : 0,
   };
 }
@@ -37,18 +37,23 @@ export function rankHair(m, shape, score) {
     const len = t.hairlineSet ? m.length - cover * t.upper : m.length;
     const appR = (len / (m.width * (1 + 0.03 * h.sides))) * (1 + 0.03 * h.top);
     const baseR = t.hairlineSet ? m.length / m.width : appR;
-    const balance = t.hairlineSet ? gauss(appR / R.length - 1, 0.08) - gauss(baseR / R.length - 1, 0.08) : 0;
-    if (t.hairlineSet) add(clamp(balance * 0.35, -10, 10), balance > 0 ? '縦横の比率を卵型に近づける' : '縦横の比率が卵型から離れる');
+    const sdL = NORM.length.sd;
+    const balance = t.hairlineSet ? gauss((appR - R.length) / sdL, 1.2) - gauss((baseR - R.length) / sdL, 1.2) : 0;
+    const ratioText = `見た目の縦横比 ${baseR.toFixed(2)} → ${appR.toFixed(2)}（平均顔 ${R.length.toFixed(2)}）`;
+    if (t.hairlineSet) add(clamp(balance * 0.35, -10, 10), balance > 0 ? `${ratioText}に近づく` : `${ratioText}から離れる`);
 
-    if (lean.forehead > 0.5 && h.bangs >= 1) add(4 * lean.forehead, '広めのおでこを前髪でほどよく隠せる');
-    if (lean.forehead > 0.5 && h.bangs === 0) add(-3 * lean.forehead, 'おでこの広さがそのまま出る');
-    if (lean.forehead < -0.5 && h.bangs === 0) add(-4 * lean.forehead, '前髪を上げて狭めのおでこを広く見せる');
-    if (lean.forehead < -0.5 && h.bangs >= 1.5) add(3 * lean.forehead, '前髪でおでこがさらに狭く見える');
+    const upperPct = t.hairlineSet ? Math.round((t.upper / t.total) * 100) : null;
+    const upperShown = t.hairlineSet ? Math.round(((t.upper * (1 - cover)) / (t.total - cover * t.upper)) * 100) : null;
+    if (lean.forehead > 0.5 && h.bangs >= 1) add(4 * lean.forehead, `おでこ ${upperPct}% を前髪で ${upperShown}% ほどに見せられる（理想 33%）`);
+    if (lean.forehead > 0.5 && h.bangs === 0) add(-3 * lean.forehead, `おでこ ${upperPct}% がそのまま出る（理想 33%）`);
+    if (lean.forehead < -0.5 && h.bangs === 0) add(-4 * lean.forehead, `前髪を上げ、狭めのおでこ（${upperPct}%）を広く見せる`);
+    if (lean.forehead < -0.5 && h.bangs >= 1.5) add(3 * lean.forehead, `前髪でおでこ（${upperPct}%）がさらに狭く見える`);
 
-    if (lean.jaw > 0.5 && h.sides <= -1 && h.top <= 0.5) add(-4 * lean.jaw, 'サイドが短く、張ったエラが目立ちやすい');
-    if (lean.jaw > 0.5 && h.sides >= 0 && h.top >= 1) add(3 * lean.jaw, '上と横に丸みがあり、エラの張りがやわらぐ');
-    if (lean.jaw < -0.5 && h.top >= 2) add(4 * lean.jaw, 'トップが高く、あご先がより細く見える');
-    if (lean.jaw < -0.5 && h.sides >= 0.5) add(-3 * lean.jaw, 'サイドの厚みで細いあごとのバランスが取れる');
+    const jawPct = Math.round((m.jaw / m.width) * 100), jawRef = Math.round(R.jaw * 100);
+    if (lean.jaw > 0.5 && h.sides <= -1 && h.top <= 0.5) add(-4 * lean.jaw, `サイドが短く、張ったエラ（あご幅 ${jawPct}%・平均 ${jawRef}%）が目立ちやすい`);
+    if (lean.jaw > 0.5 && h.sides >= 0 && h.top >= 1) add(3 * lean.jaw, `上と横の丸みで、エラの張り（あご幅 ${jawPct}%・平均 ${jawRef}%）がやわらぐ`);
+    if (lean.jaw < -0.5 && h.top >= 2) add(4 * lean.jaw, `トップが高く、細いあご（あご幅 ${jawPct}%・平均 ${jawRef}%）がより細く見える`);
+    if (lean.jaw < -0.5 && h.sides >= 0.5) add(-3 * lean.jaw, `サイドの厚みで、細いあご（あご幅 ${jawPct}%・平均 ${jawRef}%）とつり合う`);
 
     if (asym < 70 && h.part === 'side') add(4, '分け目で視線が片側に集まり、左右差が目立ちにくい');
     if (asym < 70 && h.part === 'center') add(-4, '真ん中分けは左右差が目立ちやすい');
@@ -72,15 +77,18 @@ export function rankGlasses(m, shape) {
     let adj = 0;
     const add = (v, text) => { adj += v; if (Math.abs(v) >= 2) reasons.push({ v, text }); };
 
+    const R = SHAPE.reference;
+    const lenText = `縦横比 ${(m.lengthK1 / m.width).toFixed(2)}・平均 ${R.length.toFixed(2)}`;
+    const jawText = `あご幅 ${Math.round((m.jaw / m.width) * 100)}%・平均 ${Math.round(R.jaw * 100)}%`;
     if (lean.length !== 0) {
       const v = 6 * lean.length * g.depth;
       add(v, lean.length > 0
-        ? (g.depth > 0 ? 'レンズの天地幅が深く、顔の長さを短く見せる' : '浅いレンズで顔の長さが強調される')
-        : (g.depth < 0 ? '横長のレンズで顔の短さとつり合う' : '深いレンズで顔がさらに短く見える'));
+        ? (g.depth > 0 ? `レンズの天地幅が深く、長めの顔（${lenText}）を短く見せる` : `浅いレンズで、長めの顔（${lenText}）が強調される`)
+        : (g.depth < 0 ? `横長のレンズで、短めの顔（${lenText}）とつり合う` : `深いレンズで、短めの顔（${lenText}）がさらに短く見える`));
     }
-    if (lean.jaw > 0) add(6 * lean.jaw * g.curve, g.curve > 0 ? '丸みがエラの角をやわらげる' : '直線的な形がエラの角を強める');
+    if (lean.jaw > 0) add(6 * lean.jaw * g.curve, g.curve > 0 ? `丸みがエラの角（${jawText}）をやわらげる` : `直線的な形がエラの角（${jawText}）を強める`);
     if (lean.jaw < 0) {
-      add(4 * -lean.jaw * -g.weight, g.weight < 0 ? '下側に重心があり、細いあごとつり合う' : '上側が重く、あごの細さが目立つ');
+      add(4 * -lean.jaw * -g.weight, g.weight < 0 ? `下側の重心が細いあご（${jawText}）とつり合う` : `上側が重く、あごの細さ（${jawText}）が目立つ`);
     }
 
     const fitText = `${top.name}${top.p < 0.6 ? '寄り' : ''}の顔と${base >= 80 ? '相性が良い' : base >= 68 ? 'まずまず合う' : '相性はいまひとつ'}`;
@@ -103,8 +111,9 @@ export function frameSize(m) {
     pd: Math.round(pd),
     lensPlusBridge: lpb,
     lens: [lpb[0] - 20, lpb[1] - 18],
-    bridge: ratio > 1.12 ? '目の間がやや広め。ブリッジは太め・濃い色だと間が締まって見える。'
-      : ratio < 0.9 ? '目の間がやや狭め。ブリッジは細い・透明だと間が広く見える。'
+    // 平均顔（目の間÷目の幅の平均と標準偏差）から 1 標準偏差を超えたら「広め・狭め」
+    bridge: ratio > NORM.innerToEye.mean + NORM.innerToEye.sd ? '目の間がやや広め。ブリッジは太め・濃い色だと間が締まって見える。'
+      : ratio < NORM.innerToEye.mean - NORM.innerToEye.sd ? '目の間がやや狭め。ブリッジは細い・透明だと間が広く見える。'
         : '目の間は標準的。ブリッジはどれでも合わせやすい。',
   };
 }

@@ -4,6 +4,30 @@ import { CANONICAL } from './mesh-data.js';
 
 const N = CANONICAL.length; // 468
 
+// 遠近の補正：近くから撮ると手前（鼻）が大きく、奥（輪郭）が小さく写る。
+// MediaPipe の z は x と同じ倍率の相対的な奥行きなので、奥行きの差÷焦点距離（画素）が
+// 「その点の距離÷基準の距離 − 1」になる。各点を画像の中心から (1 + Δz/f) 倍し、遠くから撮ったのと同じ写り（正射影）に戻す。
+// 撮影距離は要らない。焦点距離は画角から（config.js の CAMERA）。
+export function perspectiveScaler(landmarks, width, focalPx) {
+  let zMean = 0;
+  for (let i = 0; i < N; i++) zMean += landmarks[i].z;
+  zMean /= N;
+  return (z) => 1 + ((z - zMean) * width) / focalPx;
+}
+export function undoPerspective(landmarks, width, height, focalPx) {
+  const scaleAt = perspectiveScaler(landmarks, width, focalPx);
+  return landmarks.map((p) => {
+    const s = scaleAt(p.z);
+    return { x: 0.5 + (p.x - 0.5) * s, y: 0.5 + (p.y - 0.5) * s, z: p.z };
+  });
+}
+
+// 黒目の直径（画素）。撮影距離の目安に使う
+export function irisDiameterPx(landmarks, width, height) {
+  const d = (a, b) => Math.hypot((landmarks[a].x - landmarks[b].x) * width, (landmarks[a].y - landmarks[b].y) * height);
+  return (d(469, 471) + d(470, 472) + d(474, 476) + d(475, 477)) / 4;
+}
+
 // MediaPipe の正規化座標（x右・y下・z奥が＋）を、画素単位の標準顔の座標系へ
 export function toFaceAxes(landmarks, width, height) {
   return landmarks.map((p) => [p.x * width, -p.y * height, -p.z * width]);
