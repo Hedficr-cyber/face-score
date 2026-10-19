@@ -61,6 +61,11 @@ export const GLASSES = [
   { id: 'browline', name: 'サーモント（ブロー）', kind: 'glasses', depth: 0, curve: -0.5, weight: 1,
     fit: { egg: 85, round: 80, long: 70, square: 65, triangle: 65, diamond: 85 },
     tip: '眉の位置に太いラインがある形。眉の形に沿うものを選ぶ。' },
+  // research：研究の知見（Leder, Forster & Gerger 2011, Swiss Journal of Psychology 70(4):211–222。ヨーロッパでの実験）
+  { id: 'rimless', name: 'フチなし（リムレス）', kind: 'glasses', depth: 0, curve: 0, weight: 0,
+    fit: { egg: 78, round: 78, long: 78, square: 78, triangle: 78, diamond: 78 }, // どの形にもなじむが、形を整える効果は小さい（中くらいの目安）
+    research: { adj: 3, text: 'フチなしは信頼感が上がり、魅力は下がらなかった（Leder ら 2011）' },
+    tip: 'レンズを留めるだけの軽い形。顔の印象を変えにくく、目元を自然に見せる。' },
   { id: 'teardrop', name: 'ティアドロップ', kind: 'sunglasses', depth: 1, curve: 0.5, weight: -1,
     fit: { egg: 85, round: 60, long: 72, square: 80, triangle: 85, diamond: 75 },
     tip: 'しずく形のパイロット型。レンズの下側が顔の重心を下げ、輪郭をやわらげる。' },

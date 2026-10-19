@@ -118,8 +118,8 @@ export function rankGlasses(m, shape, features = null) {
     reasons.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
     return {
       id: g.id, name: g.name, kind: g.kind, tip: g.tip,
-      score: clamp(base + adj, 0, 100),
-      reasons: [{ src: 'rule', text: fitText }, ...reasons.slice(0, 3).map((r) => ({ src: 'measure', text: r.text, v: r.v }))],
+      score: clamp(base + adj + (g.research?.adj || 0), 0, 100),
+      reasons: [{ src: 'rule', text: fitText }, ...(g.research ? [{ src: 'research', text: g.research.text, v: g.research.adj }] : []), ...reasons.slice(0, 3).map((r) => ({ src: 'measure', text: r.text, v: r.v }))],
     };
   }).sort((a, b) => b.score - a.score);
 }

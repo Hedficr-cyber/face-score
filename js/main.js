@@ -380,7 +380,7 @@ function rankList(list, all) {
         <span class="rank-score">${Math.round(h.score)}</span>
       </div>
       ${meter(h.score)}
-      <ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}">${t.src === 'rule' ? '定番' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
+      <ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
       <div class="rank-tip"><b>伝え方・選び方</b>　${esc(h.tip)}</div>
     </article>`).join('')}</div>`;
 }
@@ -409,7 +409,8 @@ function eyewearTab(r) {
         <div><b>${s.lens[0]}–${s.lens[1]}</b><span>レンズ幅 mm</span></div>
       </div>
       <p class="small" style="margin:0">${esc(s.bridge)}<br>黒目の大きさから推定した目安です（±5% 程度）。メガネの「52□18」のような表記は、レンズ幅□ブリッジ幅です。</p>
-      <p class="small" style="margin:6px 0 0">「定番」は美容室・メガネ店で定番の考え方による目安、「測定」はあなたの測定値（縦横比・あご幅・目元・眉と目の距離）にもとづく理由です。顔の形の判定は平均顔のデータにもとづきます。</p>
+      <p class="small" style="margin:6px 0 0">「定番」は美容室・メガネ店で定番の考え方による目安、「測定」はあなたの測定値（縦横比・あご幅・目元・眉と目の距離）、「研究」は研究の結果にもとづく理由です。顔の形の判定は平均顔のデータにもとづきます。</p>
+      <p class="small" style="margin:6px 0 0">研究の知見：メガネをかけると知的に見える一方、魅力はやや下がって見えやすい。ただしフチなしでは信頼感が上がり、魅力は下がらなかった。メガネは目元に視線を集める（Leder・Forster・Gerger 2011、ヨーロッパでの実験）。</p>
     </div>
     <div style="height:10px"></div>
     ${rankList(list, true)}`;

@@ -334,3 +334,4 @@ button.chip { font-family: inherit; cursor: pointer; }
 .ref-details > summary::after { content: "＋"; float: right; color: var(--text-3); }
 .ref-details[open] > summary::after { content: "−"; }
 .ref-details > summary b { color: var(--text-2); font-weight: 500; }
+.why-src.research { color: var(--text); border-color: var(--line-2); background: var(--surface-3); }
