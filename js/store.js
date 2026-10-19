@@ -48,6 +48,21 @@ export const store = {
     }
     return write({ ...state, records: [...state.records, rec] }) ? rec : null;
   },
+  // 読み込んだ記録を足す（import.js の parseExport で確かめたもの）。この端末で測った同じ記録は上書きしない。
+  // 前に読み込んだ記録は、元の端末の較正値が変わっていればそれだけ新しくする。保存できなければ null
+  importRecords(list) {
+    const byId = new Map(state.records.map((r) => [r.id, r]));
+    let added = 0, updated = 0;
+    for (const rec of list) {
+      const cur = byId.get(rec.id);
+      if (!cur) { byId.set(rec.id, rec); added++; continue; }
+      if (cur.imported && cur.raw && rec.raw?.cal && JSON.stringify(cur.raw.cal) !== JSON.stringify(rec.raw.cal)) {
+        byId.set(rec.id, { ...cur, raw: { ...cur.raw, cal: rec.raw.cal } }); updated++;
+      }
+    }
+    if (!added && !updated) return { added, updated };
+    return write({ ...state, records: [...byId.values()] }) ? { added, updated } : null;
+  },
   remove(id) { return write({ ...state, records: state.records.filter((r) => r.id !== id) }); },
   clear() { return write({ ...state, records: [] }); },
   setting: (k) => state.settings[k],

@@ -13,6 +13,7 @@ import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
 import { researchScore, percentileInterval } from './research-score.js';
+import { parseExport, IMPORT_LIMITS } from './import.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -48,7 +49,8 @@ function evaluate(rec) {
   // v0.2.0 以降の記録は生の点から、いまの焦点距離で遠近を補正し直す
   let points = rec.points, shotPoints = rec.shots, calibrated = null;
   if (rec.raw) {
-    const cam = focalFor(rec.raw.w, rec.raw.h);
+    // 他の端末から読み込んだ記録は、書き出した時点のその端末の較正値で計算する（この端末の較正は別のカメラのもの）
+    const cam = rec.raw.cal ? { focal: rec.raw.cal.focal, zScale: rec.raw.cal.zScale || 1, calibrated: true } : focalFor(rec.raw.w, rec.raw.h);
     calibrated = cam.calibrated;
     shotPoints = rec.raw.shots.map((s) => frontalFromRaw(unpackRaw(s), rec.raw.w, rec.raw.h, cam.focal, cam.zScale));
     points = averagePoints(shotPoints);
@@ -177,7 +179,9 @@ function renderResult(rec, { latest }) {
     `<span class="chip">生え際 ${m.thirds.hairlineSet ? '指定' : '推定'}</span>`,
     r.calibrated == null ? '<span class="chip">比率の遠近補正なし（v0.1 の記録）</span>'
       : r.calibrated ? '<span class="chip">比率の遠近補正 較正済み</span>'
-        : '<button class="chip warn" type="button" data-act="calib">比率の遠近補正 未較正 ›</button>',
+        : rec.imported ? '<span class="chip">比率の遠近補正 未較正（元の端末）</span>'
+          : '<button class="chip warn" type="button" data-act="calib">比率の遠近補正 未較正 ›</button>',
+    rec.imported ? '<span class="chip">読み込んだ記録</span>' : '',
   ].join('');
 
   view.innerHTML = `
@@ -333,7 +337,7 @@ function eyewearTab(r) {
 function renderHistory() {
   const recs = store.records();
   if (!recs.length) {
-    view.innerHTML = `<div class="empty fade-in">まだ記録がありません。<br><br><button class="btn" type="button" data-act="shoot">測定をはじめる</button></div>`;
+    view.innerHTML = `<div class="empty fade-in">まだ記録がありません。<br><br><button class="btn" type="button" data-act="shoot">測定をはじめる</button><div style="margin-top:12px"><button class="btn ghost" type="button" data-act="import">書き出した記録を読み込む（JSON）</button></div></div>`;
     return;
   }
   const rows = recs.map((rec) => { const r = evaluate(rec); return { rec, r, value: displayedScore(r) }; });
@@ -358,13 +362,14 @@ function renderHistory() {
         const prev = rows[i + 1];
         const d = prev?.value != null && value != null ? value - prev.value : null;
         return `<a class="row" href="#r/${encodeURIComponent(rec.id)}">
-          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}${!r.attractiveness && r.research?.interval ? `・範囲 ${r.research.interval.map(Math.round).join('〜')}` : ''}・参考比率 ${one(r.score.total)}</div></div>
+          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${rec.imported ? '読み込み・' : ''}${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}${!r.attractiveness && r.research?.interval ? `・範囲 ${r.research.interval.map(Math.round).join('〜')}` : ''}・参考比率 ${one(r.score.total)}</div></div>
           <div class="row-delta${d != null && d > 0 ? ' up' : ''}">${d == null ? '' : `${d >= 0 ? '+' : ''}${one(d)}`}</div>
           <div class="row-score">${num(value)}</div>
         </a>`;
       }).join('')}</div>
       <div class="actions">
         <button class="btn ghost block" type="button" data-act="export">データを書き出す（JSON）</button>
+        <button class="btn ghost block" type="button" data-act="import">書き出した記録を読み込む（JSON）</button>
         <button class="btn danger block" type="button" data-act="clear">すべての記録を削除</button>
       </div>
     </div>`;
@@ -416,6 +421,7 @@ view.addEventListener('click', (e) => {
   if (act === 'calib') openCalibSheet();
   if (act === 'allHair') { ui.allHair = true; rerenderTab(); }
   if (act === 'export') exportData();
+  if (act === 'import') importData();
   if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => {
     if (!store.clear()) { toast('削除を保存できませんでした。記録は残っています'); return; }
     memo.clear(); route(); toast('削除しました');
@@ -433,6 +439,27 @@ function exportData() {
   a.download = `face-score_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// 別の端末（iPhone など）で書き出した記録を読み込む。写真は含まれない（点の座標と較正値だけ）
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json,application/json';
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      if (file.size > IMPORT_LIMITS.bytes) throw new Error('ファイルが大きすぎます');
+      const { records, skipped } = parseExport(await file.text());
+      if (!records.length) throw new Error('読み込める記録がありませんでした');
+      const res = store.importRecords(records);
+      if (!res) throw new Error('保存できませんでした。端末の保存領域を確認してください');
+      memo.clear(); route();
+      const note = skipped ? `・${skipped}件は形式が合わず読み込みませんでした` : '';
+      toast(res.added || res.updated ? `${res.added}件を読み込みました${res.updated ? `（${res.updated}件は較正値を更新）` : ''}${note}` : `すべて読み込み済みの記録でした${note}`);
+    } catch (err) { toast(err.message || '読み込めませんでした'); }
+  });
+  input.click();
 }
 
 // ---------- シート・通知 ----------
