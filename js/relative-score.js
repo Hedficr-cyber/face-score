@@ -47,6 +47,25 @@ export function validateAttractivenessModel(model) {
   return model;
 }
 
+// アプリの主点は日本人男性限定。画像の見た目やAsianラベルから国籍を推測しない。
+// これは出典メタデータの受入検査であり、記載内容や利用条件の確認はモデル作成時に行う。
+export function validateJapaneseMaleModel(model) {
+  validateAttractivenessModel(model);
+  const documentedJapaneseMen = (cohort) => {
+    if (cohort?.nationality !== 'JP' || cohort?.gender !== 'male'
+      || cohort?.nationalityBasis !== 'source-documented'
+      || typeof cohort?.source !== 'string' || cohort.source.length > 2000) return false;
+    try {
+      const source = new URL(cohort.source);
+      return source.protocol === 'https:' && !!source.hostname && !source.username && !source.password;
+    } catch { return false; }
+  };
+  if (![model.trainingCohort, model.cohort, model.evaluation?.cohort].every(documentedJapaneseMen)) {
+    throw new Error('学習・校正・検証すべてに、日本人男性と確認できる出典付きの採点基準が必要です');
+  }
+  return model;
+}
+
 export function predictAttractiveness(points, model) {
   validateAttractivenessModel(model);
   const x = attractivenessFeatures(points);

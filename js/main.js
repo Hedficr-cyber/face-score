@@ -11,7 +11,7 @@ import { frontalFromRaw, solveFocalFromTurns, fovDegrees } from './calibration.j
 import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
-import { predictAttractiveness, validateAttractivenessModel } from './relative-score.js';
+import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,9 +27,9 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
 
 const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false };
 let attractivenessModel = null;
-try { attractivenessModel = validateAttractivenessModel(store.setting('attractivenessModel')); } catch { /* 取り込み前は比率を表示 */ }
-const displayedScore = (r) => attractivenessModel ? r.attractiveness?.percentile ?? null : r.score.total;
-const metricLabel = () => attractivenessModel ? '魅力の相対点（研究版）' : '比率の総合点';
+try { attractivenessModel = validateJapaneseMaleModel(store.setting('attractivenessModel')); } catch { /* 日本人男性の基準がなければ主点は未算出 */ }
+const displayedScore = (r) => r.attractiveness?.percentile ?? null;
+const metricLabel = () => '日本人男性の魅力相対点';
 
 // ---------- カメラの焦点距離（端末と解像度ごと。較正していなければ想定値） ----------
 const camKey = (w, h) => `${Math.max(w, h)}x${Math.min(w, h)}`;
@@ -62,7 +62,7 @@ function evaluate(rec) {
       }));
       attractiveness = predictAttractiveness(researchPoints, attractivenessModel);
     } catch {
-      attractivenessError = 'この採点基準で研究点を計算できませんでした。比率の点数を表示しています。基準を取り込み直すか、比率表示に戻してください。';
+      attractivenessError = 'この採点基準では魅力の相対点を計算できませんでした。主点は未算出です。採点基準を取り込み直してください。比率の点数は参考として確認できます。';
     }
   }
   let spread = null;
@@ -121,7 +121,8 @@ function renderWelcome() {
   view.innerHTML = `<section class="welcome fade-in">
     <div class="welcome-mark">${welcomeMark()}</div>
     <h1>顔を測ってみましょう</h1>
-    <p>正面から3回撮って平均し、比率を採点します。<br>写真は保存せず、どこにも送りません。</p>
+    <p>正面から3回撮って平均します。<br>写真は保存せず、どこにも送りません。</p>
+    <p class="small">日本人男性の魅力相対点は、評価付きの基準を準備中です。基準が整うまでは主点を出さず、比率の測定結果を参考として表示します。</p>
     <button class="btn" type="button" data-act="shoot">測定をはじめる</button>
     ${Object.keys(store.setting('focals') || {}).length ? '' : '<div style="margin-top:12px"><button class="btn ghost" type="button" data-act="calib">先にカメラを較正する（約30秒）</button></div>'}
     <ul class="tips">
@@ -154,10 +155,10 @@ function renderResult(rec, { latest }) {
     ${latest ? '' : '<a class="chip" href="#history" style="display:inline-block;margin:2px 0 8px">← 記録へ戻る</a>'}
     <section class="hero fade-in">
       <div class="hero-date">${dateText(rec.at)}</div>
-      <div class="small">${attraction ? metricLabel() : '比率の総合点'}</div>
-      ${gauge(attraction ? attraction.percentile : r.score.total, attraction ? 'RELATIVE / 100' : 'BALANCE / 100')}
+      <div class="small">${metricLabel()}</div>
+      ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : '<h1>未算出</h1>'}
       <div class="chips">${chips}</div>
-      ${attraction ? `<p class="small">アジア男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。日本人全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。</p>' : ''}
+      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : '<p class="small">日本人男性の評価付き基準が未整備のため、主点は出していません。比率の点数は参考として確認できます。</p>'}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
       ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
@@ -203,7 +204,7 @@ function scoreTab(rec, r) {
   }).join('');
 
   return `
-    ${r.attractiveness ? `<div class="card small">比率の総合点：<b>${one(r.score.total)}</b> / 100。下の5項目は比率の内訳で、魅力の相対点とは別の指標です。</div>` : ''}
+    <div class="card small">参考：比率スコア <b>${one(r.score.total)}</b> / 100。下の5項目は比率の内訳で、魅力の相対点とは別の指標です。</div>
     <div class="label">Portrait</div>
     <div class="card portrait">
       ${portraitSVG(r.points, m, ui.portrait)}
@@ -277,20 +278,20 @@ function renderHistory() {
   view.innerHTML = `
     <div class="fade-in">
       <div class="label" style="margin-top:8px">Summary</div>
-      <p class="small">${metricLabel()}${attractivenessModel ? '。遠近補正前の古い記録は集計に含みません。' : ''}</p>
+      <p class="small">${metricLabel()}。比率スコアは主点の集計に含みません。${attractivenessModel ? '元の点がない古い記録も集計に含みません。' : '日本人男性の評価付き基準が未整備のため、主点は未算出です。'}</p>
       <div class="stats">
         <div><b>${num(rows[0].value)}</b><span>最新</span></div>
         <div><b>${num(best)}</b><span>最高</span></div>
         <div><b>${num(avg)}</b><span>平均</span></div>
         <div><b>${recs.length}</b><span>回数</span></div>
       </div>
-      ${chrono.length ? `<div class="card chart">${chartSVG(chrono)}</div>` : '<p class="small">新しく測定すると、魅力の相対点を表示できます。</p>'}
+      ${chrono.length ? `<div class="card chart">${chartSVG(chrono)}</div>` : `<p class="small">${attractivenessModel ? '主点を計算できる記録がありません。元の点がある記録を使って計算します。' : '日本人男性の評価付き基準を準備中です。基準が整うまで主点のグラフは表示しません。'}</p>`}
       <div class="label">History</div>
       <div class="list">${rows.map(({ rec, r, value }, i) => {
         const prev = rows[i + 1];
         const d = prev?.value != null && value != null ? value - prev.value : null;
         return `<a class="row" href="#r/${encodeURIComponent(rec.id)}">
-          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}${value == null ? '・比率のみ' : ''}</div></div>
+          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}・参考比率 ${one(r.score.total)}</div></div>
           <div class="row-delta${d != null && d > 0 ? ' up' : ''}">${d == null ? '' : `${d >= 0 ? '+' : ''}${one(d)}`}</div>
           <div class="row-score">${num(value)}</div>
         </a>`;
@@ -393,8 +394,8 @@ function toast(text) {
 
 $('#infoBtn').addEventListener('click', () => openSheet(`
   <h2 id="sheetTitle">FACE SCORE について</h2>
-  <p>自分の顔の比率を測って採点し、似合う髪型・メガネを点数つきで提案する、個人用のアプリです。</p>
-  <h3>点数の出し方</h3>
+  <p>日本人男性を基準に、自分の顔の魅力を相対点で見るための個人用アプリです。評価付きの日本人男性基準は準備中です。基準が整うまでは主点を出さず、顔の比率や似合う髪型・メガネを参考として表示します。</p>
+  <h3>参考：比率スコアの出し方</h3>
   <ul>
     <li>顔の478点の位置をスマホの中で検出し、顔の向きを正面にそろえてから測ります。</li>
     <li>左右対称 30%、縦のバランス 20%、横のバランス 20%、パーツの配置 15%、輪郭 15% の重みで総合点にします。</li>
@@ -402,11 +403,11 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>横のバランス・パーツの配置・輪郭は「平均顔との近さ」で採点します。平均顔は、公開データ FairFace（CC BY 4.0）の東アジア人男性 20〜39歳・正面・無表情の顔画像 204 枚を、このアプリと同じ方法で測った平均です。この3項目の中央値がおよそ 50 点になる目盛りで、手加減はしていません。総合点の中央値を 50 点にする目盛りではなく、日本人全体での順位も表していません。</li>
     <li>比率の点数であり、魅力そのものや人としての価値の評価ではありません。</li>
   </ul>
-  <h3>魅力の相対点（研究版）</h3>
-  <p>人が付けた評価を学んだ採点基準を、この端末へ取り込むと使えます。顔の形状から平均評価を予測する研究版で、比率の総合点とは別です。日本人全体の順位や、肌・髪を含む印象は未検証です。学習写真と同じ遠近補正前の形状で計算するため、撮影距離による影響は残ります。カメラの較正は比率側に適用されます。</p>
-  ${attractivenessModel ? `<p class="small">現在の基準：${esc(attractivenessModel.cohort.label)}<br>校正用${attractivenessModel.reference.values.length}画像内の順位。${attractivenessModel.evaluation?.model?.pearson_r != null ? `独立テストとの相関 ${Number(attractivenessModel.evaluation.model.pearson_r).toFixed(2)}（正解率ではありません）。` : ''}</p>` : '<p class="small">未取り込み。現在は比率の点数を表示しています。</p>'}
+  <h3>日本人男性の魅力相対点</h3>
+  <p>学習・校正・検証それぞれの集団が日本人男性と出典で確認できる、評価付きの採点基準だけを受け付けます。アジア男性という区分だけの基準は使いません。基準をこの端末へ取り込むと、顔の形状から人の平均評価を予測します。一般の日本人男性全体の順位や、肌・髪を含む印象は未検証です。学習写真と同じ遠近補正前の形状で計算するため、撮影距離による影響は残ります。カメラの較正は参考の比率スコア側に適用されます。</p>
+  ${attractivenessModel ? `<p class="small">現在の基準：${esc(attractivenessModel.cohort.label)}<br>校正用${attractivenessModel.reference.values.length}画像内の順位。${attractivenessModel.evaluation?.model?.pearson_r != null ? `独立テストとの相関 ${Number(attractivenessModel.evaluation.model.pearson_r).toFixed(2)}（正解率ではありません）。` : ''}</p>` : '<p class="small">日本人男性の評価付き基準が未整備のため、主点は未算出です。比率スコアは参考として表示しています。</p>'}
   <div class="actions"><button class="btn ghost block" type="button" id="importAttractiveness">研究用の採点基準を取り込む</button>
-  ${attractivenessModel ? '<button class="btn ghost block" type="button" id="removeAttractiveness">比率スコアの表示に戻す</button>' : ''}</div>
+  ${attractivenessModel ? '<button class="btn ghost block" type="button" id="removeAttractiveness">採点基準を解除する</button>' : ''}</div>
   <input id="attractivenessFile" type="file" accept=".json,application/json" hidden>
   <p class="small">ファイルはこの端末の中で読み込みます。写真や採点基準を外部へ送信しません。</p>
   <h3>精度について</h3>
@@ -429,7 +430,7 @@ sheet.addEventListener('click', (e) => {
   if (e.target.id === 'importAttractiveness') $('#attractivenessFile').click();
   if (e.target.id === 'removeAttractiveness') {
     if (!store.setSetting('attractivenessModel', null)) { toast('表示の設定を保存できませんでした'); return; }
-    attractivenessModel = null; memo.clear(); closeSheet(); route(); toast('比率スコアに戻しました');
+    attractivenessModel = null; memo.clear(); closeSheet(); route(); toast('採点基準を解除しました。主点は未算出です');
   }
 });
 sheet.addEventListener('change', async (e) => {
@@ -437,7 +438,7 @@ sheet.addEventListener('change', async (e) => {
   try {
     const file = e.target.files[0];
     if (file.size > 1024 * 1024) throw new Error('採点基準のファイルが大きすぎます');
-    const model = validateAttractivenessModel(JSON.parse(await file.text()));
+    const model = validateJapaneseMaleModel(JSON.parse(await file.text()));
     if (!store.setSetting('attractivenessModel', model)) throw new Error('保存できませんでした。端末の保存領域を確認してください');
     attractivenessModel = model; memo.clear(); closeSheet(); route(); toast('研究用の採点基準を取り込みました');
   } catch (err) { toast(err.message || '採点基準を読み込めませんでした'); }
