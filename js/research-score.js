@@ -95,6 +95,61 @@ export function percentile(sorted, v) {
   return (100 * (lo + (eq - lo) / 2)) / sorted.length;
 }
 
+// ---- 点数の誤差の範囲（既定は 90%）----
+// 2つの誤差を合わせる。
+// ① 基準の人数が少ないことによる順位の揺れ：「基準の人のうち何割より上か」を二項分布のウィルソン区間で見る
+// ② 測定の揺れ：撮影ごとの合成値のばらつき（標準誤差 se）を、基準の並びの上で順位の揺れに直す
+// ①と②は独立なので、正規分布の目盛り（プロビット）の上で二乗和にして合わせる（単純に足すと広すぎる）。
+// 著名人中心という基準の偏りの大きさは測れないので、この範囲には含まれない。
+function erf(x) {
+  const sg = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+  return sg * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a));
+}
+export const normCdf = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
+// 標準正規分布の逆関数（Acklam の近似）
+export function normInv(p) {
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.3577518672690, -30.66479806614716, 2.506628277459239];
+  const b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572];
+  const c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416];
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  const tail = (q) => (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  if (p < 0.02425) return tail(Math.sqrt(-2 * Math.log(p)));
+  if (p > 1 - 0.02425) return -tail(Math.sqrt(-2 * Math.log(1 - p)));
+  const q = p - 0.5, r = q * q;
+  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+}
+export function percentileInterval(sorted, value, se = 0, z = 1.645) {
+  const n = sorted.length;
+  const p = percentile(sorted, value) / 100;
+  const wilson = (sign) => {
+    const z2 = z * z, dn = 1 + z2 / n;
+    const cc = (p + z2 / (2 * n)) / dn, h = (z * Math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))) / dn;
+    return Math.min(1, Math.max(0, cc + sign * h));
+  };
+  const lo = wilson(-1), hi = wilson(+1);
+  if (!(se > 0)) return [100 * lo, 100 * hi];
+  // 基準の並びを線でつないだ順位（測定の揺れで合成値が少し動いたときの順位の動き）
+  const smooth = (v) => {
+    if (v <= sorted[0]) return 0.5 / n;
+    if (v >= sorted[n - 1]) return 1 - 0.5 / n;
+    let i = 0;
+    while (sorted[i + 1] <= v) i++;
+    const gap = sorted[i + 1] - sorted[i];
+    return (i + 0.5 + (gap > 0 ? (v - sorted[i]) / gap : 0)) / n;
+  };
+  const q = normInv(Math.min(1 - 0.5 / n, Math.max(0.5 / n, p)));
+  const qs = normInv(smooth(value));
+  const mL = qs - normInv(smooth(value - z * se)), mU = normInv(smooth(value + z * se)) - qs;
+  const out = (bound, m, sign) => {
+    if (bound <= 0 || bound >= 1) return bound;
+    const r = Math.abs(normInv(bound) - q);
+    return normCdf(q + sign * Math.sqrt(r * r + m * m));
+  };
+  return [100 * out(lo, mL, -1), 100 * out(hi, mU, +1)];
+}
+
 // 男らしさの好み：ちょうど良い所（optimum。標準化した男らしさ）からの離れ具合の2乗を、基準集団で標準化
 // （2026-10-19 の SCUT の前半：男性的なほど評価が下がり、女性寄り 1 標準偏差あたりから先は横ばい）
 export function mascPreference(m, pref) {

@@ -284,3 +284,10 @@ button.chip { font-family: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* 誤差の範囲（研究の相対点） */
+.gauge .range { stroke: rgba(255, 255, 255, 0.14); stroke-width: 11; }
+.range-text { text-align: center; font-size: 13px; color: var(--text-2); margin: -6px 0 10px; }
+.range-text b { font-family: var(--num); font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+.range-text span { color: var(--text-3); font-size: 11px; margin-left: 2px; }
+.item-range { margin-left: 8px; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; font-weight: 400; }

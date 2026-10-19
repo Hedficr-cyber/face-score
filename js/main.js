@@ -12,7 +12,7 @@ import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
-import { researchScore } from './research-score.js';
+import { researchScore, percentileInterval } from './research-score.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -81,10 +81,17 @@ function evaluate(rec) {
       const facePx = Math.hypot((lm0[454].x - lm0[234].x) * rec.raw.w, (lm0[454].y - lm0[234].y) * rec.raw.h);
       const cov = { yaw: 0, pitch: 0, smile: 0, facePx };
       research = researchScore(points, RESEARCH_REF, cov);
+      let se = 0;
       if (shotPoints && shotPoints.length > 1) {
-        const ts = shotPoints.map((p) => researchScore(p, RESEARCH_REF, cov).total);
+        const shots = shotPoints.map((p) => researchScore(p, RESEARCH_REF, cov));
+        const ts = shots.map((s) => s.total);
         research.spread = (Math.max(...ts) - Math.min(...ts)) / 2;
+        // 平均した点の測定の揺れ＝撮影ごとの合成値の標準偏差÷√枚数
+        const cs = shots.map((s) => s.composite), cm = cs.reduce((a, b) => a + b, 0) / cs.length;
+        se = Math.sqrt(cs.reduce((a, b) => a + (b - cm) ** 2, 0) / (cs.length - 1)) / Math.sqrt(cs.length);
       }
+      // 基準の人数（98人）と測定の揺れを合わせた 90% の範囲
+      research.interval = percentileInterval(RESEARCH_REF.compositeSorted, research.composite, se);
     } catch { research = null; }
   }
   const result = {
@@ -117,13 +124,17 @@ const icon = {
   updown: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>',
 };
 
-function gauge(total, label = 'TOTAL / 100') {
+function gauge(total, label = 'TOTAL / 100', range = null) {
   const r = 54, c = 2 * Math.PI * r, arc = c * 0.75;
-  const val = arc * Math.max(0, Math.min(100, total)) / 100;
+  const clamp = (v) => Math.max(0, Math.min(100, v));
+  const val = arc * clamp(total) / 100;
+  // 誤差の範囲（下限〜上限）を太い薄い帯で重ねる
+  const band = range ? `<circle class="range" cx="60" cy="60" r="${r}" stroke-dasharray="${(arc * (clamp(range[1]) - clamp(range[0])) / 100).toFixed(2)} ${c}" stroke-dashoffset="${(-arc * clamp(range[0]) / 100).toFixed(2)}"/>` : '';
   const [int, dec] = one(total).split('.');
   return `<div class="gauge">
     <svg viewBox="0 0 120 120" aria-hidden="true">
       <circle class="track" cx="60" cy="60" r="${r}" stroke-dasharray="${arc} ${c}"/>
+      ${band}
       <circle class="bar" cx="60" cy="60" r="${r}" stroke-dasharray="${val} ${c}" ${total >= 80 ? 'style="stroke:var(--accent)"' : ''}/>
     </svg>
     <div class="gauge-num"><div class="n">${int}<small>.${dec}</small></div><div class="of">${esc(label)}</div></div>
@@ -174,9 +185,10 @@ function renderResult(rec, { latest }) {
     <section class="hero fade-in">
       <div class="hero-date">${dateText(rec.at)}</div>
       <div class="small">${metricLabel()}</div>
-      ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : r.research ? gauge(r.research.total, 'RESEARCH / 100') : '<h1>未算出</h1>'}
+      ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : r.research ? gauge(r.research.total, 'RESEARCH / 100', r.research.interval) : '<h1>未算出</h1>'}
+      ${!attraction && r.research?.interval ? `<div class="range-text">誤差を含めた範囲 <b>${Math.round(r.research.interval[0])}〜${Math.round(r.research.interval[1])}</b> 点<span>（90%）</span></div>` : ''}
       <div class="chips">${chips}${!attraction && r.research?.spread != null ? `<span class="chip">相対点のぶれ ±${one(r.research.spread)}</span>` : ''}</div>
-      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : r.research ? `<p class="small">研究で魅力との関係が確かめられた「平均顔への近さ」と「男らしさのバランス」を、日本人男性 ${RESEARCH_REF.n} 人（公開写真）の中の順位にした点数です。50点が真ん中。人の評価との一致は中程度（ρ＝0.29。アジア系男性の評価データで確認。日本人女性の評価そのものではありません）。基準の人数が少ないので ±5 点ほどは誤差の範囲です。</p>` : '<p class="small">この古い記録には元の点がないため、相対点は出していません。比率の点数は参考として確認できます。</p>'}
+      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : r.research ? `<p class="small">研究で魅力との関係が確かめられた「平均顔への近さ」と「男らしさのバランス」を、日本人男性 ${RESEARCH_REF.n} 人（公開写真）の中の順位にした点数です。50点が真ん中。人の評価との一致は中程度（ρ＝0.29。アジア系男性の評価データで確認。日本人女性の評価そのものではありません）。範囲は、基準の人数が少ないことと撮影ごとの揺れを合わせた 90% の範囲です（本当の順位がこの中にある確からしさが 90%）。著名人中心という基準の偏りは大きさを測れないため、範囲には入っていません。</p>` : '<p class="small">この古い記録には元の点がないため、相対点は出していません。比率の点数は参考として確認できます。</p>'}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
       ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
@@ -245,8 +257,9 @@ function researchCard(r) {
   const mi = p.masculinity.mascIndex;
   const mascSide = mi > 0.5 ? '平均より男性寄り' : mi < -0.5 ? '平均より女性寄り' : '平均くらい';
   const opt = RESEARCH_REF.mascPreference.optimum;
-  const row = (name, weight, pct, notes, tag = '') => `<div class="item open">
-      <div class="item-head" role="group"><span class="item-name">${name}${weight != null ? `<span class="item-weight">${Math.round(weight * 100)}%</span>` : ''}${tag}</span>
+  const rangeOf = (key) => percentileInterval(RESEARCH_REF.sortedParts[key], p[key].z).map(Math.round).join('〜');
+  const row = (name, weight, pct, notes, tag = '', key = null) => `<div class="item open">
+      <div class="item-head" role="group"><span class="item-name">${name}${weight != null ? `<span class="item-weight">${Math.round(weight * 100)}%</span>` : ''}${tag}${key ? `<span class="item-range">範囲 ${rangeOf(key)}</span>` : ''}</span>
         <span class="item-score ${level(pct)}">${Math.round(pct)}</span>${meter(pct)}</div>
       <div class="item-body"><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div></div>`;
   return `
@@ -254,13 +267,13 @@ function researchCard(r) {
     <div class="items">
       ${row('平均顔への近さ', w.averageness, p.averageness.pct, [
         `目・眉・鼻・口の形と配置が、日本人男性の平均顔にどれだけ近いか（輪郭は撮影距離で変わりやすいので使わない）。`,
-        `日本人男性 ${RESEARCH_REF.n} 人の中の順位で ${Math.round(p.averageness.pct)} 点（50点が真ん中）。平均性は研究で魅力と関係が確かめられた要素（Rhodes 2006 のまとめで r≈0.4、日本人の顔でも同じ：Rhodes ら 2001）。`])}
+        `日本人男性 ${RESEARCH_REF.n} 人の中の順位で ${Math.round(p.averageness.pct)} 点（50点が真ん中）。平均性は研究で魅力と関係が確かめられた要素（Rhodes 2006 のまとめで r≈0.4、日本人の顔でも同じ：Rhodes ら 2001）。`], '', 'averageness')}
       ${row('男らしさのバランス', w.masculinity, p.masculinity.pct, [
         `男らしさ ${mi >= 0 ? '+' : ''}${mi.toFixed(1)}（標準偏差の単位。${mascSide}）。あごの幅・眉と目の距離・目の大きさ・唇の厚さ・小鼻の幅などから計算。`,
-        `評価データでは、男性的すぎると評価が下がり、女性寄りに ${Math.abs(opt).toFixed(1)} 標準偏差ほどのところで最も高い（日本人の評価者も女性寄りの男性顔を好んだ：Perrett ら 1998）。`])}
+        `評価データでは、男性的すぎると評価が下がり、女性寄りに ${Math.abs(opt).toFixed(1)} 標準偏差ほどのところで最も高い（日本人の評価者も女性寄りの男性顔を好んだ：Perrett ら 1998）。`], '', 'masculinity')}
       ${row('左右対称', null, p.symmetry.pct, [
         '研究では魅力と関係があるとされる要素ですが、このアプリの測り方では評価データとの関係が確認できなかったため（ρ≈0.04）、総合点には入れていません。',
-        '顔の点の検出は左右をそろえた形を出しやすく、本当の左右差を取りきれないことが一因と考えられます。'], '<span class="item-tag">参考</span>')}
+        '顔の点の検出は左右をそろえた形を出しやすく、本当の左右差を取りきれないことが一因と考えられます。'], '<span class="item-tag">参考</span>', 'symmetry')}
     </div>
     <p class="small" style="margin-top:10px">総合点＝平均顔への近さ ${Math.round(w.averageness * 100)}%・男らしさのバランス ${Math.round(w.masculinity * 100)}% を合わせ、日本人男性 ${RESEARCH_REF.n} 人の中の順位にしたもの。重みはアジア系男性の評価データ（研究用）で、評価と一致した強さに合わせて決め、別の半分で確かめました（ρ＝0.29）。基準の日本人男性は公開写真のある著名人・スポーツ選手が中心です。</p>`;
 }
@@ -326,7 +339,7 @@ function renderHistory() {
   view.innerHTML = `
     <div class="fade-in">
       <div class="label" style="margin-top:8px">Summary</div>
-      <p class="small">${metricLabel()}。比率スコアは主点の集計に含みません。元の点がない古い記録（v0.1）も集計に含みません。</p>
+      <p class="small">${metricLabel()}。比率スコアは主点の集計に含みません。前回との差が各記録の範囲の幅より小さいときは、測定や基準の誤差の内です。元の点がない古い記録（v0.1）も集計に含みません。</p>
       <div class="stats">
         <div><b>${num(rows[0].value)}</b><span>最新</span></div>
         <div><b>${num(best)}</b><span>最高</span></div>
@@ -339,7 +352,7 @@ function renderHistory() {
         const prev = rows[i + 1];
         const d = prev?.value != null && value != null ? value - prev.value : null;
         return `<a class="row" href="#r/${encodeURIComponent(rec.id)}">
-          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}・参考比率 ${one(r.score.total)}</div></div>
+          <div><div class="row-date">${dateText(rec.at)}</div><div class="row-sub">${esc(r.shape.main.name)}・生え際${r.measures.thirds.hairlineSet ? '指定' : '推定'}${!r.attractiveness && r.research?.interval ? `・範囲 ${r.research.interval.map(Math.round).join('〜')}` : ''}・参考比率 ${one(r.score.total)}</div></div>
           <div class="row-delta${d != null && d > 0 ? ' up' : ''}">${d == null ? '' : `${d >= 0 ? '+' : ''}${one(d)}`}</div>
           <div class="row-score">${num(value)}</div>
         </a>`;
@@ -450,7 +463,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>男らしさのバランス：あごの幅・眉と目の距離・目の大きさ・唇の厚さ・小鼻の幅など、研究で性差が報告されている特徴から計算。評価データでは男性的すぎると評価が下がり、やや女性寄りで最も高くなりました（日本人の評価者で女性寄りが好まれた Perrett ら 1998 と同じ向き）。</li>
     <li>左右対称：研究では魅力と関係がありますが、このアプリの測り方では評価との関係が確認できなかったため、総合点には入れず参考として表示します。</li>
     <li>重み（平均顔 ${Math.round(RESEARCH_REF.weights.averageness * 100)}%・男らしさ ${Math.round(RESEARCH_REF.weights.masculinity * 100)}%）は、アジア系男性の顔に60人が付けた評価（SCUT-FBP5500。研究用データ。日本人女性の評価ではない）の半分で決め、残りの半分で確かめました。人の評価との一致は ρ＝0.29（中程度）です。</li>
-    <li>順位の基準は、公開写真（Wikimedia Commons）のある日本国籍の男性 ${RESEARCH_REF.n} 人です（国籍・性別は Wikidata の記載。顔や名前から推定していません）。著名人・スポーツ選手が中心で、一般の日本人男性全体の順位ではありません。人数が少ないので ±5 点ほどは誤差の範囲です。</li>
+    <li>順位の基準は、公開写真（Wikimedia Commons）のある日本国籍の男性 ${RESEARCH_REF.n} 人です（国籍・性別は Wikidata の記載。顔や名前から推定していません）。著名人・スポーツ選手が中心で、一般の日本人男性全体の順位ではありません。人数が少ないため、点数には「誤差を含めた範囲」を一緒に出します。基準の人数による順位の揺れ（二項分布のウィルソン区間）と、3回の撮影の揺れを合わせた 90% の範囲で、真ん中の50点付近ではおよそ ±8 点（撮影の揺れが大きいとさらに広く）、端に近いほど狭くなります。前回との差がこの幅より小さければ、変化とは言えません。基準の偏り（著名人中心）は大きさを測れないため、範囲に含めていません。</li>
     <li>魅力の正解でも、人としての価値の評価でもありません。</li>
   </ul>
   <h3>参考：比率スコアの出し方</h3>
