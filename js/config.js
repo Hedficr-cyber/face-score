@@ -60,11 +60,11 @@ export const CAPTURE = {
   holdFrames: 6,         // 条件を満たし続けたら撮るまでのフレーム数
   gapMs: 300,            // 1枚撮ったあとの待ち時間
   maxYaw: 4, maxPitch: 6, maxRoll: 8,   // 顔の向きの許容（度）。roll は正面化で正確に戻るので緩め
-  minFaceWidth: 0.30, maxFaceWidth: 0.80, // 画面の短い辺に対する顔の幅
+  minFaceWidth: 0.36, maxFaceWidth: 0.80, // 画面の短い辺に対する顔の幅（0.36 ≒ スマホの前面カメラで 47cm 前後。2026-10-20 目安を 40cm に）
   maxCenterOffset: 0.12, // 画面中央からのずれ（短い辺に対する割合）
   maxJawOpen: 0.12, maxSmile: 0.40, maxBlink: 0.50,
   maxMotion: 0.006,      // 前のフレームからの点の動き（顔の幅に対する平均）。超えたらぶれとみなす
-  minDistanceCm: 28, maxDistanceCm: 90, // 撮影距離の目安（黒目の大きさと画角から推定）
+  minDistanceCm: 30, maxDistanceCm: 48, // 撮影距離（黒目の大きさと画角から推定、較正済みのとき）。目安 40cm（2026-10-20：本人が近めで測りたい。距離をそろえると記録どうしを比べやすい）
   minLuma: 60,           // 顔の明るさ（0〜255）の下限
 };
 

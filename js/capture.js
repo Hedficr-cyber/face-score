@@ -33,8 +33,8 @@ function check(lm, fit, result, w, h, ctx, opts) {
   const short = Math.min(w, h);
   const faceW = Math.hypot((lm[454].x - lm[234].x) * w, (lm[454].y - lm[234].y) * h) / short;
   const minW = opts.minFaceWidth ?? C.minFaceWidth, maxW = opts.maxFaceWidth ?? C.maxFaceWidth;
-  if (faceW > maxW || (opts.calibrated && !opts.mode && ctx.distance < C.minDistanceCm)) return { code: 'near', text: opts.nearText || '少し離れてください' };
-  if (faceW < minW || (opts.calibrated && !opts.mode && ctx.distance > C.maxDistanceCm)) return { code: 'far', text: opts.farText || '少し近づいてください' };
+  if (faceW > maxW || (opts.calibrated && !opts.mode && ctx.distance < C.minDistanceCm)) return { code: 'near', text: opts.nearText || '少し離れてください（目安 40cm）' };
+  if (faceW < minW || (opts.calibrated && !opts.mode && ctx.distance > C.maxDistanceCm)) return { code: 'far', text: opts.farText || '少し近づいてください（目安 40cm）' };
   const cx = ((lm[234].x + lm[454].x) / 2 - 0.5) * w / short;
   const cy = ((lm[10].y + lm[152].y) / 2 - 0.5) * h / short;
   if (Math.hypot(cx, cy) > C.maxCenterOffset) return { code: 'center', text: '顔を枠の中央に合わせてください' };
@@ -209,7 +209,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
 
     const problem = check(lm, fit, result, w, h, env, opts);
     drawOverlay(ctx2d, lm, w, h, !problem);
-    const info = { angles: fit.angles, distance, motion, luma };
+    const info = { angles: fit.angles, distance, motion, luma, calibrated: !!cam.calibrated };
 
     if (problem) {
       resetShot();

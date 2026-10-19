@@ -156,6 +156,31 @@ export function mascPreference(m, pref) {
   return (-((m - pref.optimum) ** 2) - pref.mean) / pref.sd;
 }
 
+// ---- 10段階：基準集団の中の順位（0〜100）を、10人に1人ずつの段階にする（1＝下位10%・10＝上位10%）----
+export function levelOf(pct) { return Math.min(10, Math.max(1, Math.ceil(pct / 10))); }
+export const LEVEL_WORDS = ['', '下位', '下位', '平均よりやや下', '平均よりやや下', '平均くらい', '平均くらい', '平均より上', '平均より上', '上位', '上位'];
+
+// ---- 部位ごとのプラス・マイナス ----
+// 重み（ref.partWeights）は、日本人の評価者の「魅力の向き」（Nakamura & Watanabe 2020 の動画）に沿って顔を 1 SD 動かしたとき、
+// 各特徴（日本人男性の基準で標準化）がどれだけ動くか。部位の点＝その部位の特徴を、日本人の評価者が好む向きに測ったもの（標準偏差の単位）。
+// 重みの大きさ＝その部位が魅力の向きにどれだけ効くか（目が最も大きい）。鼻すじ・鷲鼻などの高さは正面の写真では測れないので入れない。
+export const PARTS = [
+  { key: 'eyes', name: '目', features: ['eyeOpen', 'eyeWidth'] },
+  { key: 'brows', name: '眉と目の間', features: ['browEye'] },
+  { key: 'jaw', name: 'あご・輪郭', features: ['jaw', 'lowerFace', 'chinH'] },
+  { key: 'nose', name: '小鼻', features: ['nose'] },
+  { key: 'lips', name: '唇', features: ['lips'] },
+];
+export function partAnalysis(featZ, weights) {
+  return PARTS.map((p) => {
+    const w = p.features.map((k) => weights[k] || 0);
+    const z = p.features.map((k) => featZ[k]);
+    const influence = Math.hypot(...w);
+    const score = influence > 0 ? w.reduce((s, wk, i) => s + wk * z[i], 0) / influence : 0;
+    return { key: p.key, name: p.name, score, influence, items: p.features.map((k, i) => ({ key: k, z: z[i], weight: w[i] })) };
+  });
+}
+
 // ---- 日本人の好みの向き ----
 // Nakamura & Watanabe 2020（Sci Rep 10:16588、データ CC0）が日本人の評価者の評定から作った「魅力が上がる顔の変化」の動画
 // （CG の東アジア人男性）を同じ方法で測り、目・眉・鼻・口の形（平均顔に重ねた2次元）が SD とともに動く向きを求めたもの。
@@ -174,10 +199,9 @@ export function researchScore(P, ref, cov = {}) {
   const raw = rawIndices(P, ref.meanShape);
   const asym = adjust(raw.asymmetry, ref.coef.asymmetry, c);
   const avg = adjust(raw.averageness, ref.coef.averageness, c);
-  const mascZ = Object.entries(MASC_FEATURES).map(([k, f]) => {
-    const v = adjust(raw.masc[k], ref.coef.masc[k], c);
-    return f.sign * (v - ref.masc[k].mean) / ref.masc[k].sd;
-  });
+  // 特徴ごとの標準化した値（日本人男性の基準で。大きいほどその特徴が大きい）
+  const features = Object.fromEntries(Object.keys(MASC_FEATURES).map((k) => [k, (adjust(raw.masc[k], ref.coef.masc[k], c) - ref.masc[k].mean) / ref.masc[k].sd]));
+  const mascZ = Object.entries(MASC_FEATURES).map(([k, f]) => f.sign * features[k]);
   const masc = (mascZ.reduce((s, v) => s + v, 0) / mascZ.length - ref.mascComposite.mean) / ref.mascComposite.sd;
   // 各要素を「良い方が大きい」標準化した値に
   const s = {
@@ -207,6 +231,8 @@ export function researchScore(P, ref, cov = {}) {
       masculinity: { value: masc, z: s.masculinity, pct: percentile(ref.sortedParts.masculinity, s.masculinity), mascIndex: masc },
       ...(japanese ? { japanese } : {}),
     },
+    features,
+    ...(ref.partWeights ? { partsDetail: partAnalysis(features, ref.partWeights) } : {}),
     raw,
   };
 }

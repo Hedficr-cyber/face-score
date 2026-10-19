@@ -291,3 +291,33 @@ button.chip { font-family: inherit; cursor: pointer; }
 .range-text b { font-family: var(--num); font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
 .range-text span { color: var(--text-3); font-size: 11px; margin-left: 2px; }
 .item-range { margin-left: 8px; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+/* 10段階（v0.6.0） */
+.level { margin: 4px auto 14px; max-width: 320px; }
+.level-head { display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+.level-n { font-family: var(--num); font-weight: 300; font-size: 40px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.level-of { font-family: var(--num); font-size: 13px; color: var(--text-3); }
+.level-word { font-size: 13px; color: var(--text-2); margin-left: 6px; }
+.level-bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin-top: 10px; }
+.level-bar i { height: 6px; border-radius: 3px; background: var(--surface-3); }
+.level-bar i.near { background: rgba(217, 199, 158, 0.35); }
+.level-bar i.on { background: var(--accent); }
+.level-note { margin-top: 8px; font-size: 11px; color: var(--text-3); text-align: center; }
+
+/* 10段階の目安の顔 */
+.anchor-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.anchor-row figure { margin: 0; text-align: center; }
+.anchor-row img { width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-s); display: block; background: #000; }
+.anchor-row figcaption { margin-top: 6px; font-size: 11px; color: var(--text-3); line-height: 1.4; }
+.anchor-row figcaption b { display: block; font-family: var(--num); font-weight: 400; font-size: 20px; color: var(--text); }
+
+/* 部位ごとのプラス・マイナス */
+.parts-sum { margin: 0 0 10px; font-size: 13px; color: var(--text-2); }
+.parts-sum b { color: var(--text); font-weight: 600; }
+.part { border-top: 1px solid var(--line); padding: 12px 0 4px; }
+.part-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.part-name { font-size: 15px; }
+.part-mark { font-family: var(--num); font-size: 18px; min-width: 2.2em; text-align: right; color: var(--text-2); }
+.part-mark.plus { color: var(--accent); }
+.part-mark.minus { color: var(--low); }
+.part ul { margin: 6px 0 4px; padding-left: 1.1em; font-size: 12px; color: var(--text-2); line-height: 1.6; }
