@@ -1,12 +1,12 @@
 // オフラインでも開けるようにする。版を上げたら CACHE の名前も変える。
-const CACHE = 'face-score-0.3.0';
+const CACHE = 'face-score-0.4.0';
 // 顔の検出のライブラリとモデル（約15MB）は版と別に持つ。MediaPipe やモデルを入れ替えたときだけ名前を変える
 const ASSETS = 'face-score-assets-mp1.0.1';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/store.js', 'js/analysis.js', 'js/advice.js', 'js/catalog.js', 'js/config.js',
   'js/geometry.js', 'js/mesh-data.js', 'js/portrait.js', 'js/chart.js', 'js/capture.js', 'js/detector.js', 'js/version.js', 'js/hairline.js', 'js/calibration.js',
-  'js/attractiveness-features.js', 'js/relative-score.js',
+  'js/attractiveness-features.js', 'js/relative-score.js', 'js/research-score.js', 'js/research-reference.js',
   'icons/icon-192.png', 'icons/apple-touch-icon.png',
 ];
 
