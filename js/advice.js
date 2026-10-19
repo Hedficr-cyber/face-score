@@ -1,4 +1,4 @@
-// 髪型・メガネの似合い度（顔の形との相性＋比率をどれだけ整えるか）
+// 髪型・メガネの似合い度（顔の形との相性＋比率をどれだけ整えるか＋部位の強みを見せ弱みを目立たせないか）
 import { HAIR, GLASSES } from './catalog.js';
 import { SHAPE, NORM } from './config.js';
 
@@ -20,7 +20,17 @@ function leanings(m) {
   };
 }
 
-export function rankHair(m, shape, score) {
+// 部位の測定（research-score の features：日本人男性 98 人の基準で標準化。1＝平均から標準偏差 1 つ分）。
+// 日本人の評価者が好む向き（Nakamura & Watanabe 2020。撮影条件をそろえた SCUT でも同じ向き）：目は大きい方・眉と目は近い方。
+// 強みは見せ、弱みは目立たせない髪型・メガネに点を足す（足し方はスタイリングの定番の考え方。向きの根拠は上の研究）
+function partLeanings(f) {
+  if (!f) return null;
+  return { eyes: (f.eyeOpen + f.eyeWidth) / 2, browEye: f.browEye };
+}
+const sdText = (z) => `平均より ${z >= 0 ? "+" : "−"}${Math.abs(z).toFixed(1)} SD`;
+
+export function rankHair(m, shape, score, features = null) {
+  const parts = partLeanings(features);
   const lean = leanings(m);
   const R = SHAPE.reference;
   const asym = score.items.symmetry.score;
@@ -55,6 +65,13 @@ export function rankHair(m, shape, score) {
     if (lean.jaw < -0.5 && h.top >= 2) add(4 * lean.jaw, `トップが高く、細いあご（あご幅 ${jawPct}%・平均 ${jawRef}%）がより細く見える`);
     if (lean.jaw < -0.5 && h.sides >= 0.5) add(-3 * lean.jaw, `サイドの厚みで、細いあご（あご幅 ${jawPct}%・平均 ${jawRef}%）とつり合う`);
 
+    if (parts) {
+      if (parts.eyes >= 0.5 && h.bangs <= 0.5) add(2 + 2 * Math.min(parts.eyes, 1.5), `目元が強み（目の大きさ ${sdText(parts.eyes)}）。前髪で隠さずに見せられる`);
+      if (parts.eyes >= 0.5 && h.bangs >= 2) add(-3, `重い前髪で、強みの目元（${sdText(parts.eyes)}）が隠れる`);
+      if (parts.browEye >= 0.6 && h.bangs >= 1.5) add(3, `眉と目の距離（${sdText(parts.browEye)}。好まれるのは近い方）が、眉にかかる前髪で目立ちにくい`);
+      if (parts.browEye >= 0.6 && h.bangs === 0) add(-2, `前髪を上げると、離れぎみの眉と目（${sdText(parts.browEye)}）が目立つ`);
+      if (parts.browEye <= -0.6 && h.bangs === 0) add(2, `眉と目が近い（${sdText(parts.browEye)}。強み）。前髪を上げると引き立つ`);
+    }
     if (asym < 70 && h.part === 'side') add(4, '分け目で視線が片側に集まり、左右差が目立ちにくい');
     if (asym < 70 && h.part === 'center') add(-4, '真ん中分けは左右差が目立ちやすい');
 
@@ -63,12 +80,13 @@ export function rankHair(m, shape, score) {
     return {
       id: h.id, name: h.name, tip: h.tip,
       score: clamp(base + adj, 0, 100),
-      reasons: [fitText, ...reasons.slice(0, 2).map((r) => r.text)],
+      reasons: [{ src: 'rule', text: fitText }, ...reasons.slice(0, 3).map((r) => ({ src: 'measure', text: r.text, v: r.v }))],
     };
   }).sort((a, b) => b.score - a.score);
 }
 
-export function rankGlasses(m, shape) {
+export function rankGlasses(m, shape, features = null) {
+  const parts = partLeanings(features);
   const lean = leanings(m);
   const top = shape.main;
   return GLASSES.map((g) => {
@@ -91,12 +109,17 @@ export function rankGlasses(m, shape) {
       add(4 * -lean.jaw * -g.weight, g.weight < 0 ? `下側の重心が細いあご（${jawText}）とつり合う` : `上側が重く、あごの細さ（${jawText}）が目立つ`);
     }
 
+    if (parts) {
+      if (parts.eyes >= 0.5 && g.kind === 'sunglasses') add(-3, `強みの目元（${sdText(parts.eyes)}）が隠れる。見せたい場面では外すか、薄い色のレンズに`);
+      if (parts.browEye >= 0.6 && g.weight >= 1) add(4, `眉の位置の太いラインで、離れぎみの眉と目（${sdText(parts.browEye)}）の間が詰まって見える`);
+      if (parts.browEye <= -0.6 && g.weight >= 1) add(-2, `眉の位置の太いラインが、強みの眉と目の近さ（${sdText(parts.browEye)}）を隠す`);
+    }
     const fitText = `${top.name}${top.p < 0.6 ? '寄り' : ''}の顔と${base >= 80 ? '相性が良い' : base >= 68 ? 'まずまず合う' : '相性はいまひとつ'}`;
     reasons.sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
     return {
       id: g.id, name: g.name, kind: g.kind, tip: g.tip,
       score: clamp(base + adj, 0, 100),
-      reasons: [fitText, ...reasons.slice(0, 2).map((r) => r.text)],
+      reasons: [{ src: 'rule', text: fitText }, ...reasons.slice(0, 3).map((r) => ({ src: 'measure', text: r.text, v: r.v }))],
     };
   }).sort((a, b) => b.score - a.score);
 }

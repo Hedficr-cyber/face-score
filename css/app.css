@@ -321,3 +321,16 @@ button.chip { font-family: inherit; cursor: pointer; }
 .part-mark.plus { color: var(--accent); }
 .part-mark.minus { color: var(--low); }
 .part ul { margin: 6px 0 4px; padding-left: 1.1em; font-size: 12px; color: var(--text-2); line-height: 1.6; }
+
+/* 提案の理由の出どころ（定番の考え方／測定値） */
+.why-src { display: inline-block; font-size: 10px; line-height: 1; padding: 3px 6px; margin-right: 6px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--text-3); vertical-align: 1px; }
+.why-src.plus { color: var(--accent); border-color: rgba(217, 199, 158, 0.45); }
+.why-src.minus { color: var(--low); }
+
+/* 参考の比率スコア（たたむ） */
+.ref-details { margin-top: 24px; }
+.ref-details > summary { cursor: pointer; list-style: none; font-size: 13px; color: var(--text-3); padding: 12px 2px; border-top: 1px solid var(--line); }
+.ref-details > summary::-webkit-details-marker { display: none; }
+.ref-details > summary::after { content: "＋"; float: right; color: var(--text-3); }
+.ref-details[open] > summary::after { content: "−"; }
+.ref-details > summary b { color: var(--text-2); font-weight: 500; }

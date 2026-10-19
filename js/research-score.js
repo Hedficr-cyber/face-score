@@ -209,27 +209,30 @@ export function researchScore(P, ref, cov = {}) {
     averageness: -(avg - ref.averageness.mean) / ref.averageness.sd,
     masculinity: mascPreference(masc, ref.mascPreference),
   };
-  const w = ref.weights;
-  // 研究の2要素（平均顔への近さ・男らしさのバランス）を合わせた値
-  const base = w.symmetry * s.symmetry + w.averageness * s.averageness + w.masculinity * s.masculinity;
-  let composite = base, japanese = null;
-  if (ref.japanese && ref.combine) {
-    // 日本人の好みの向き（基準集団で標準化）と、2要素の合計（同じく標準化）を、答え合わせの前半で決めた重みで合わせる
+  const extra = {};
+  if (ref.japanese) {
+    // 日本人の好みの向き（形）：目・眉・鼻・口の形が、日本人の評価者の「魅力」の向きにどれだけ寄っているか
     const proj = adjust(japaneseProjection(P, ref.meanShape, ref.japanese.direction), ref.japanese.coef, c);
-    const jz = (proj - ref.japanese.mean) / ref.japanese.sd;
-    japanese = { value: proj, z: jz, pct: percentile(ref.sortedParts.japanese, jz) };
-    const cw = ref.combine.weights;
-    composite = cw.base * (base - ref.combine.base.mean) / ref.combine.base.sd + cw.japanese * jz;
+    s.japanese = (proj - ref.japanese.mean) / ref.japanese.sd;
+    extra.japanese = { value: proj, z: s.japanese, pct: percentile(ref.sortedParts.japanese, s.japanese) };
   }
+  if (ref.featureJapanese && ref.partWeights) {
+    // 部位の特徴（日本人の好み）：8つの特徴を、日本人の評価者が好む向きの重みで合成（部位ごとのプラス・マイナスの合計）
+    const fj = Object.keys(ref.partWeights).reduce((t, k) => t + ref.partWeights[k] * features[k], 0);
+    s.featureJapanese = (fj - ref.featureJapanese.mean) / ref.featureJapanese.sd;
+    extra.featureJapanese = { value: fj, z: s.featureJapanese, pct: percentile(ref.sortedParts.featureJapanese, s.featureJapanese) };
+  }
+  // 総合：各要素（日本人の基準で標準化）を、答え合わせの前半で決めた重みで足す
+  const w = ref.weights;
+  const composite = Object.keys(w).reduce((t, k) => t + (w[k] || 0) * (s[k] ?? 0), 0);
   return {
     total: percentile(ref.compositeSorted, composite),
     composite,
-    base,
     parts: {
       symmetry: { value: asym, z: s.symmetry, pct: percentile(ref.sortedParts.symmetry, s.symmetry) },
       averageness: { value: avg, z: s.averageness, pct: percentile(ref.sortedParts.averageness, s.averageness) },
       masculinity: { value: masc, z: s.masculinity, pct: percentile(ref.sortedParts.masculinity, s.masculinity), mascIndex: masc },
-      ...(japanese ? { japanese } : {}),
+      ...extra,
     },
     features,
     ...(ref.partWeights ? { partsDetail: partAnalysis(features, ref.partWeights) } : {}),
