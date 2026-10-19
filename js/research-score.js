@@ -156,6 +156,17 @@ export function mascPreference(m, pref) {
   return (-((m - pref.optimum) ** 2) - pref.mean) / pref.sd;
 }
 
+// ---- 日本人の好みの向き ----
+// Nakamura & Watanabe 2020（Sci Rep 10:16588、データ CC0）が日本人の評価者の評定から作った「魅力が上がる顔の変化」の動画
+// （CG の東アジア人男性）を同じ方法で測り、目・眉・鼻・口の形（平均顔に重ねた2次元）が SD とともに動く向きを求めたもの。
+// 本人の形が平均顔からその向きにどれだけ寄っているか（射影）を出す。direction は単位ベクトル（INNER_POINTS の x,y の順）。
+export function japaneseProjection(P, meanShape, direction) {
+  const s = procrustes(shape2d(P), meanShape).aligned;
+  let t = 0;
+  for (let i = 0; i < s.length; i++) t += (s[i][0] - meanShape[i][0]) * direction[2 * i] + (s[i][1] - meanShape[i][1]) * direction[2 * i + 1];
+  return t;
+}
+
 // ---- 採点：ref は research-reference.js の REFERENCE ----
 // cov：本人の撮影条件（顔の向き・笑顔・顔の幅の画素）。アプリの測定は正面・無表情・高解像度なので、ほぼ 0 の補正
 export function researchScore(P, ref, cov = {}) {
@@ -175,14 +186,26 @@ export function researchScore(P, ref, cov = {}) {
     masculinity: mascPreference(masc, ref.mascPreference),
   };
   const w = ref.weights;
-  const composite = w.symmetry * s.symmetry + w.averageness * s.averageness + w.masculinity * s.masculinity;
+  // 研究の2要素（平均顔への近さ・男らしさのバランス）を合わせた値
+  const base = w.symmetry * s.symmetry + w.averageness * s.averageness + w.masculinity * s.masculinity;
+  let composite = base, japanese = null;
+  if (ref.japanese && ref.combine) {
+    // 日本人の好みの向き（基準集団で標準化）と、2要素の合計（同じく標準化）を、答え合わせの前半で決めた重みで合わせる
+    const proj = adjust(japaneseProjection(P, ref.meanShape, ref.japanese.direction), ref.japanese.coef, c);
+    const jz = (proj - ref.japanese.mean) / ref.japanese.sd;
+    japanese = { value: proj, z: jz, pct: percentile(ref.sortedParts.japanese, jz) };
+    const cw = ref.combine.weights;
+    composite = cw.base * (base - ref.combine.base.mean) / ref.combine.base.sd + cw.japanese * jz;
+  }
   return {
     total: percentile(ref.compositeSorted, composite),
     composite,
+    base,
     parts: {
       symmetry: { value: asym, z: s.symmetry, pct: percentile(ref.sortedParts.symmetry, s.symmetry) },
       averageness: { value: avg, z: s.averageness, pct: percentile(ref.sortedParts.averageness, s.averageness) },
       masculinity: { value: masc, z: s.masculinity, pct: percentile(ref.sortedParts.masculinity, s.masculinity), mascIndex: masc },
+      ...(japanese ? { japanese } : {}),
     },
     raw,
   };

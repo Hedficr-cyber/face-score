@@ -151,7 +151,7 @@ function renderWelcome() {
     <div class="welcome-mark">${welcomeMark()}</div>
     <h1>顔を測ってみましょう</h1>
     <p>正面から3回撮って平均します。<br>写真は保存せず、どこにも送りません。</p>
-    <p class="small">研究で魅力との関係が確かめられた要素（平均顔への近さ・男らしさのバランス）を、日本人男性の中の順位（50点が真ん中）で出します。</p>
+    <p class="small">研究で魅力との関係が確かめられた要素（平均顔への近さ・男らしさのバランス）と、日本人の評価者の好みの向きを合わせ、日本人男性の中の順位（50点が真ん中）で出します。</p>
     <button class="btn" type="button" data-act="shoot">測定をはじめる</button>
     ${Object.keys(store.setting('focals') || {}).length ? '' : '<div style="margin-top:12px"><button class="btn ghost" type="button" data-act="calib">先にカメラを較正する（約30秒）</button></div>'}
     <ul class="tips">
@@ -188,7 +188,7 @@ function renderResult(rec, { latest }) {
       ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : r.research ? gauge(r.research.total, 'RESEARCH / 100', r.research.interval) : '<h1>未算出</h1>'}
       ${!attraction && r.research?.interval ? `<div class="range-text">誤差を含めた範囲 <b>${Math.round(r.research.interval[0])}〜${Math.round(r.research.interval[1])}</b> 点<span>（90%）</span></div>` : ''}
       <div class="chips">${chips}${!attraction && r.research?.spread != null ? `<span class="chip">相対点のぶれ ±${one(r.research.spread)}</span>` : ''}</div>
-      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : r.research ? `<p class="small">研究で魅力との関係が確かめられた「平均顔への近さ」と「男らしさのバランス」を、日本人男性 ${RESEARCH_REF.n} 人（公開写真）の中の順位にした点数です。50点が真ん中。人の評価との一致は中程度（ρ＝0.29。アジア系男性の評価データで確認。日本人女性の評価そのものではありません）。範囲は、基準の人数が少ないことと撮影ごとの揺れを合わせた 90% の範囲です（本当の順位がこの中にある確からしさが 90%）。著名人中心という基準の偏りは大きさを測れないため、範囲には入っていません。</p>` : '<p class="small">この古い記録には元の点がないため、相対点は出していません。比率の点数は参考として確認できます。</p>'}
+      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : r.research ? `<p class="small">研究で魅力との関係が確かめられた「平均顔への近さ」「男らしさのバランス」と、日本人の評価者の評定から作られた「日本人の好みの向き」を合わせ、日本人男性 ${RESEARCH_REF.n} 人（公開写真）の中の順位にした点数です。50点が真ん中。人の評価との一致は ρ＝${RESEARCH_REF.validity.rhoB.toFixed(2)}（アジア系男性の評価データで、撮影条件の影響を除いて確認。日本人女性の評価そのものではありません）。範囲は、基準の人数が少ないことと撮影ごとの揺れを合わせた 90% の範囲です（本当の順位がこの中にある確からしさが 90%）。著名人中心という基準の偏りは大きさを測れないため、範囲には入っていません。</p>` : '<p class="small">この古い記録には元の点がないため、相対点は出していません。比率の点数は参考として確認できます。</p>'}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
       ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
@@ -249,11 +249,13 @@ function scoreTab(rec, r) {
   `;
 }
 
-// 研究の知見による相対点の内訳（平均顔への近さ・男らしさのバランス・参考の左右対称）
+// 研究の知見による相対点の内訳（平均顔への近さ・男らしさのバランス・日本人の好みの向き・参考の左右対称）
 function researchCard(r) {
   const R = r.research;
   if (!R) return '';
-  const w = RESEARCH_REF.weights, p = R.parts;
+  const w = RESEARCH_REF.weights, p = R.parts, cw = RESEARCH_REF.combine.weights, V = RESEARCH_REF.validity;
+  // 総合点の中の割合：2要素の合計（62%）を平均顔と男らしさで分け、日本人の好みの向き（38%）と並べる
+  const share = { averageness: cw.base * w.averageness, masculinity: cw.base * w.masculinity, japanese: cw.japanese };
   const mi = p.masculinity.mascIndex;
   const mascSide = mi > 0.5 ? '平均より男性寄り' : mi < -0.5 ? '平均より女性寄り' : '平均くらい';
   const opt = RESEARCH_REF.mascPreference.optimum;
@@ -265,17 +267,21 @@ function researchCard(r) {
   return `
     <div class="label">Research</div>
     <div class="items">
-      ${row('平均顔への近さ', w.averageness, p.averageness.pct, [
+      ${row('日本人の好みの向き', share.japanese, p.japanese.pct, [
+        '日本人の大学生の評定から作られた「魅力が上がる顔の変化」の向き（Nakamura & Watanabe 2020、CG の男性の顔）に、目・眉・鼻・口の形がどれだけ寄っているか。',
+        `向きの中身は、目が縦・横に大きい・眉と目が近い・あごが細め・小鼻が小さめなど。実在のアジア系男性の評価データでも当たることを確認しました（ρ＝${V.japaneseRhoB.toFixed(2)}）。`,
+        `日本人男性 ${RESEARCH_REF.n} 人の中の順位で ${Math.round(p.japanese.pct)} 点（50点が真ん中）。`], '', 'japanese')}
+      ${row('平均顔への近さ', share.averageness, p.averageness.pct, [
         `目・眉・鼻・口の形と配置が、日本人男性の平均顔にどれだけ近いか（輪郭は撮影距離で変わりやすいので使わない）。`,
         `日本人男性 ${RESEARCH_REF.n} 人の中の順位で ${Math.round(p.averageness.pct)} 点（50点が真ん中）。平均性は研究で魅力と関係が確かめられた要素（Rhodes 2006 のまとめで r≈0.4、日本人の顔でも同じ：Rhodes ら 2001）。`], '', 'averageness')}
-      ${row('男らしさのバランス', w.masculinity, p.masculinity.pct, [
+      ${row('男らしさのバランス', share.masculinity, p.masculinity.pct, [
         `男らしさ ${mi >= 0 ? '+' : ''}${mi.toFixed(1)}（標準偏差の単位。${mascSide}）。あごの幅・眉と目の距離・目の大きさ・唇の厚さ・小鼻の幅などから計算。`,
         `評価データでは、男性的すぎると評価が下がり、女性寄りに ${Math.abs(opt).toFixed(1)} 標準偏差ほどのところで最も高い（日本人の評価者も女性寄りの男性顔を好んだ：Perrett ら 1998）。`], '', 'masculinity')}
       ${row('左右対称', null, p.symmetry.pct, [
         '研究では魅力と関係があるとされる要素ですが、このアプリの測り方では評価データとの関係が確認できなかったため（ρ≈0.04）、総合点には入れていません。',
         '顔の点の検出は左右をそろえた形を出しやすく、本当の左右差を取りきれないことが一因と考えられます。'], '<span class="item-tag">参考</span>', 'symmetry')}
     </div>
-    <p class="small" style="margin-top:10px">総合点＝平均顔への近さ ${Math.round(w.averageness * 100)}%・男らしさのバランス ${Math.round(w.masculinity * 100)}% を合わせ、日本人男性 ${RESEARCH_REF.n} 人の中の順位にしたもの。重みはアジア系男性の評価データ（研究用）で、評価と一致した強さに合わせて決め、別の半分で確かめました（ρ＝0.29）。基準の日本人男性は公開写真のある著名人・スポーツ選手が中心です。</p>`;
+    <p class="small" style="margin-top:10px">総合点＝日本人の好みの向き ${Math.round(share.japanese * 100)}%・平均顔への近さ ${Math.round(share.averageness * 100)}%・男らしさのバランス ${Math.round(share.masculinity * 100)}% を合わせ、日本人男性 ${RESEARCH_REF.n} 人の中の順位にしたもの。重みはアジア系男性の評価データ（研究用）の半分で決め、残りの半分で確かめました（撮影条件をそろえて ρ＝${V.rhoB.toFixed(2)}。日本人の好みの向きを入れる前は ${V.baseRhoB.toFixed(2)}）。基準の日本人男性は公開写真のある著名人・スポーツ選手が中心です。</p>`;
 }
 
 function rankList(list, all) {
@@ -461,8 +467,9 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>研究で魅力との関係が確かめられた3要素（平均顔への近さ・左右対称・男らしさ）を候補にし、このアプリの測り方で人の評価と本当に一致するかを確かめてから使っています。</li>
     <li>平均顔への近さ：目・眉・鼻・口の形と配置が日本人男性の平均顔にどれだけ近いか。輪郭は撮影距離（遠近）で大きく変わり、撮り方の違う写真どうしで比べると意味を失うため使いません。</li>
     <li>男らしさのバランス：あごの幅・眉と目の距離・目の大きさ・唇の厚さ・小鼻の幅など、研究で性差が報告されている特徴から計算。評価データでは男性的すぎると評価が下がり、やや女性寄りで最も高くなりました（日本人の評価者で女性寄りが好まれた Perrett ら 1998 と同じ向き）。</li>
+    <li>日本人の好みの向き：早稲田大の研究（Nakamura & Watanabe 2020、Scientific Reports。データは自由に使える CC0）で、日本人の大学生の評定から作られた「魅力が上がる顔の変化」の動画（CG の東アジア人男性の顔）を同じ方法で測り、目・眉・鼻・口の形が動く向きを求めたもの。本人の形がその向きにどれだけ寄っているかを見ます。実在の人の写真は使っていません。</li>
     <li>左右対称：研究では魅力と関係がありますが、このアプリの測り方では評価との関係が確認できなかったため、総合点には入れず参考として表示します。</li>
-    <li>重み（平均顔 ${Math.round(RESEARCH_REF.weights.averageness * 100)}%・男らしさ ${Math.round(RESEARCH_REF.weights.masculinity * 100)}%）は、アジア系男性の顔に60人が付けた評価（SCUT-FBP5500。研究用データ。日本人女性の評価ではない）の半分で決め、残りの半分で確かめました。人の評価との一致は ρ＝0.29（中程度）です。</li>
+    <li>重み（日本人の好みの向き ${Math.round(RESEARCH_REF.combine.weights.japanese * 100)}%・平均顔 ${Math.round(RESEARCH_REF.combine.weights.base * RESEARCH_REF.weights.averageness * 100)}%・男らしさ ${Math.round(RESEARCH_REF.combine.weights.base * RESEARCH_REF.weights.masculinity * 100)}%）は、アジア系男性の顔に60人が付けた評価（SCUT-FBP5500。研究用データ。日本人女性の評価ではない）の半分で決め、残りの半分で確かめました。人の評価との一致は ρ＝${RESEARCH_REF.validity.rhoB.toFixed(2)}（95% 区間 ${RESEARCH_REF.validity.ci95B.map((v) => v.toFixed(2)).join('〜')}）。この評価データでは顔の上下の向きそのものが評価と相関するため、向き・笑顔・解像度の影響を点数と評価の両方から除いた値です（以前の版の表示 0.29 はこの影響を含んでおり、除くと ${RESEARCH_REF.validity.baseRhoB.toFixed(2)}）。</li>
     <li>順位の基準は、公開写真（Wikimedia Commons）のある日本国籍の男性 ${RESEARCH_REF.n} 人です（国籍・性別は Wikidata の記載。顔や名前から推定していません）。著名人・スポーツ選手が中心で、一般の日本人男性全体の順位ではありません。人数が少ないため、点数には「誤差を含めた範囲」を一緒に出します。基準の人数による順位の揺れ（二項分布のウィルソン区間）と、3回の撮影の揺れを合わせた 90% の範囲で、真ん中の50点付近ではおよそ ±8 点（撮影の揺れが大きいとさらに広く）、端に近いほど狭くなります。前回との差がこの幅より小さければ、変化とは言えません。基準の偏り（著名人中心）は大きさを測れないため、範囲に含めていません。</li>
     <li>魅力の正解でも、人としての価値の評価でもありません。</li>
   </ul>
@@ -708,6 +715,8 @@ function openHairline({ points, shots, snapshot, raw }) {
   let t = autoK != null ? yToT(hairlineY(fp, autoK + bias)) : yToT(hairlineY(fp, k0));
 
   function layout() {
+    // 次のコマで描く前に画面が閉じられ、撮影画像を破棄済みのときは何もしない
+    if (!el.isConnected || !snap.width || !snap.height) return;
     const dpr = window.devicePixelRatio || 1;
     const sw = stage.clientWidth, sh = stage.clientHeight;
     cv.width = Math.round(sw * dpr); cv.height = Math.round(sh * dpr);
