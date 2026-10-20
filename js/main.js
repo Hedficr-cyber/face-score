@@ -12,7 +12,7 @@ import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
-import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS } from './research-score.js';
+import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
 import { openTryOn } from './tryon.js';
@@ -276,6 +276,7 @@ function scoreTab(rec, r) {
 
   return `
     ${attractivenessModel ? '' : researchCard(r)}
+    ${attractivenessModel ? '' : effectsCard(rec, r)}
     ${attractivenessModel ? '' : scaleCard(r)}
     ${attractivenessModel ? '' : partsCard(r)}
     <h2 class="section-title">顔の形 <span>${esc(r.shape.main.name)}</span></h2>
@@ -310,6 +311,7 @@ function scaleNotes(r) {
 }
 
 // 部位ごとのプラス・マイナス：日本人の評価者が好む向き（Nakamura & Watanabe 2020 の「魅力」の向き）に、各部位がどれだけ寄っているか
+const ELEMENT_FEATURES = { eyes: ['eyeOpen', 'eyeWidth'], brows: ['browEye'], jaw: ['jaw', 'lowerFace', 'chinH'], nose: ['nose'], lips: ['lips'] };
 const FEATURE_WORDS = {
   eyeOpen: ['目の縦の開き', '大きい', '小さい'], eyeWidth: ['目の横幅', '大きい', '小さい'],
   browEye: ['眉と目の距離', '離れている', '近い'],
@@ -429,6 +431,50 @@ function researchCard(r) {
         <div class="component-meta"><span>重み ${Math.round(RESEARCH_REF.weights[key] * 100)}%</span><span>参考 ${interval[0]}〜${interval[1]} 点</span></div>
       </article>`;
     }).join('')}</div>
+  </section>`;
+}
+
+// 点数を上げ下げしている要素（v0.11）：要素ごとに「日本人男性の基準の平均だったら総合点が何点変わるか」を逆にした値
+// （＋＝その要素で点を得ている、−＝失っている）。1回ごとの揺れ（主に目の開き）で順番が入れ替わらないよう、
+// 直近の平均と同じ記録（この記録まで、最大5回）で平均する。
+let sensitivityCache = null;
+function effectsCard(rec, r) {
+  if (!r.research) return '';
+  const evs = store.records().filter((x) => x.raw && x.at <= rec.at).slice(0, 5).map((x) => evaluate(x).research).filter(Boolean);
+  const list = evs.length ? evs : [r.research];
+  const avg = (fn) => list.reduce((t, e) => t + fn(e), 0) / list.length;
+  const rows = elementImpacts(list[0], RESEARCH_REF).map((it) => ({ ...it, gain: avg((e) => -elementImpacts(e, RESEARCH_REF).find((x) => x.key === it.key).points) }));
+  const feat = (k) => avg((e) => e.features[k]);
+  const zOf = (k) => avg((e) => e.parts[k]?.z ?? 0);
+  const note = (it) => {
+    const part = ELEMENT_FEATURES[it.key];
+    if (part) return part.map((k) => { const z = feat(k); return `${FEATURE_WORDS[k][0]}が${Math.abs(z) < 0.3 ? '平均くらい' : z > 0 ? FEATURE_WORDS[k][1] : FEATURE_WORDS[k][2]}`; }).join('・');
+    const z = zOf(it.key);
+    if (it.key === 'japanese') return `目・眉・鼻・口の並び全体が、日本人の評価者が好む形に${z >= 0.4 ? '近い' : z <= -0.4 ? '遠い' : '平均くらいの近さ'}`;
+    return `パーツの形と配置が、日本人男性の平均顔に${z >= 0.4 ? '近い' : z <= -0.4 ? '遠い（個性的）' : '平均くらいの近さ'}`;
+  };
+  const scale = Math.max(10, ...rows.map((it) => Math.abs(it.gain)));
+  const row = (it) => {
+    const kind = it.gain <= -1 ? 'minus' : it.gain >= 1 ? 'plus' : 'flat', w = (50 * Math.min(1, Math.abs(it.gain) / scale)).toFixed(1);
+    const pts = Math.round(it.gain);
+    return `<div class="effect-row ${kind}">
+        <span class="effect-name">${esc(it.name)}</span>
+        <span class="effect-bar" role="img" aria-label="${esc(it.name)}：${pts > 0 ? '+' : ''}${pts}点"><i style="${it.gain >= 0 ? 'left:50%' : `left:${(50 - w).toFixed(1)}%`};width:${w}%"></i></span>
+        <b class="effect-pts">${pts > 0 ? '+' : pts < 0 ? '−' : '±'}${Math.abs(pts)}<small>点</small></b>
+        <span class="effect-note">${esc(note(it))}</span>
+      </div>`;
+  };
+  const minus = rows.filter((it) => it.gain <= -1).sort((a, b) => a.gain - b.gain);
+  const plus = rows.filter((it) => it.gain >= 1).sort((a, b) => b.gain - a.gain);
+  const flat = rows.filter((it) => Math.abs(it.gain) < 1);
+  const group = (title, xs) => (xs.length ? `<p class="effect-group">${title}</p>${xs.map(row).join('')}` : '');
+  sensitivityCache ??= elementSensitivity(RESEARCH_REF);
+  const top = sensitivityCache.slice(0, 4).map((e) => `${e.name}（約${Math.round(e.points)}点）`).join('・');
+  return `<section aria-label="点数を上げ下げしている要素">
+    <h2 class="section-title">点数を上げ下げしている要素 <span>${list.length >= 2 ? `直近${list.length}回の平均` : 'この記録'}</span></h2>
+    <p class="section-lead">それぞれの要素が日本人男性（基準 ${RESEARCH_REF.n} 人）の平均だった場合と比べて、総合点を何点上げているか・下げているかです。−の要素が、点数を下げている所です。1つずつ平均に置き換えて計算した目安なので、足し合わせても総合点とは一致しません。</p>
+    <div class="card effects">${group('点数を下げている', minus)}${group('点数を上げている', plus)}${group('ほとんど影響なし（±1点未満）', flat)}</div>
+    <p class="small effects-foot">基準の人で点数を左右しやすい順（平均の人が、日本人の評価者が好む向きと反対に1標準偏差ずれたときに下がる点）：${top}。目の縦の開きは、撮影のたびの開き方でも変わります（点数の揺れの主な原因）。</p>
   </section>`;
 }
 
@@ -755,6 +801,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>男らしさのバランス：あごの幅・眉と目の距離・目の大きさ・唇の厚さ・小鼻の幅など、研究で性差が報告されている特徴から計算。評価データでは男性的すぎると評価が下がり、やや女性寄りで最も高くなりました（日本人の評価者で女性寄りが好まれた Perrett ら 1998 と同じ向き）。</li>
     <li>日本人の好みの向き：早稲田大の研究（Nakamura & Watanabe 2020、Scientific Reports。データは自由に使える CC0）で、日本人の大学生の評定から作られた「魅力が上がる顔の変化」の動画（CG の東アジア人男性の顔）を同じ方法で測り、目・眉・鼻・口の形が動く向きを求めたもの。本人の形がその向きにどれだけ寄っているかを見ます。実在の人の写真は使っていません。</li>
     <li>顔の写る大きさ（解像度）の補正：同じ顔を大きさだけ変えて測る実験（基準の写真の人を顔の幅90〜450画素に縮めて測定）で、測定値がほとんど変わらないことを確かめ、その実測の変化だけを補正します。v0.10 より前は基準の人どうしの比較から補正していたため、遠くから撮った写真の写り方の違いまで大きさのせいにしてしまい、顔を大きく写すこのアプリの撮影では同じ顔でも約3点低く出ていました。</li>
+    <li>点数を上げ下げしている要素：目・眉と目の間・あご・小鼻・唇・顔全体の形・平均顔への近さのそれぞれについて、その要素だけを日本人男性の基準の平均に置き換えたら総合点が何点変わるかを計算し、＋（得している）・−（下げている）で示します。1回ごとの揺れを抑えるため、直近の平均と同じ最大5回の記録で平均します。基準の人では、点数を最も左右するのは目でした（10段階で1〜3の人の多くは、目が点数を下げている一番の要素）。</li>
     <li>左右対称：研究では魅力と関係がありますが、このアプリの測り方では評価との関係が確認できなかったため、総合点には入れず参考として表示します。</li>
     <li>重み（部位の特徴 ${Math.round(RESEARCH_REF.weights.featureJapanese * 100)}%・日本人の好みの向き（形）${Math.round(RESEARCH_REF.weights.japanese * 100)}%・平均顔 ${Math.round(RESEARCH_REF.weights.averageness * 100)}%・男らしさ ${Math.round(RESEARCH_REF.weights.masculinity * 100)}%）は、アジア系男性の顔に60人が付けた評価（SCUT-FBP5500。研究用データ。日本人女性の評価ではない）の半分で決め、残りの半分で確かめました。人の評価との一致は ρ＝${RESEARCH_REF.validity.rhoB.toFixed(2)}（95% 区間 ${RESEARCH_REF.validity.ci95B.map((v) => v.toFixed(2)).join('〜')}）。この評価データでは顔の上下の向きそのものが評価と相関するため、向き・笑顔・解像度の影響を点数と評価の両方から除いた値です（v0.4 の表示 0.29 はこの影響を含んでいました）。v0.7 で、重みと男らしさの山の位置もこのやり方で決め直しました。同じ後半の結果を複数版の開発で参照しているため、完全に未知のデータでの検証ではありません。新しい人物単位での検証は未完了です。</li>
     <li>順位の基準は、公開写真（Wikimedia Commons）のある日本国籍の男性 ${RESEARCH_REF.n} 人です（国籍・性別は Wikidata の記載。顔や名前から推定していません）。v0.10 で、手元の同じ写真のうち最初は顔が小さく測れなかったものを測り直し、98人から増やしました（追加は撮影時に成人と確かめられた人だけ）。著名人・スポーツ選手が中心で、一般の日本人男性全体の順位ではありません。点数には、基準の人数と撮影ごとのばらつきから計算した「参考範囲」を添えます。式は名目90%の係数を使いますが、3回から推定したばらつきには不確かさがあり、合成実験でも90%を下回る場合がありました。実際の誤差を90%含むという保証ではありません。モデル自体の誤差・撮影条件のずれ・基準の偏りは含まず、2つの記録の差の有意性も示しません。</li>

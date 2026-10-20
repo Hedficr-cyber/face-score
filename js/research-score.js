@@ -267,3 +267,54 @@ export function researchScore(P, ref, cov = {}) {
     raw,
   };
 }
+
+// ---- 要素ごとの点数への効き（v0.11・2026-10-20）----
+// 「この要素が日本人男性の基準の平均だったら、総合点が何点変わるか」（ほかの要素はそのまま）。
+// 正の値＝その要素が点数を下げている（平均なら上がる）。負の値＝点数を上げている（平均なら下がる）。
+// 部位（目・眉と目の間・あご・小鼻・唇）は、その部位の特徴（標準化した値）を 0 にして、「部位の特徴」と「男らしさのバランス」を
+// 計算し直す。顔全体の形・平均顔への近さは、その要素の標準化した値を 0（基準の平均）にする。要素どうしは独立ではないため、
+// 足し合わせても総合点の差とは一致しない（1つずつ動かしたときの目安）。
+export const ELEMENTS = [
+  ...PARTS.map((p) => ({ key: p.key, name: p.name, features: p.features })),
+  { key: 'japanese', name: '顔全体の形', component: 'japanese' },
+  { key: 'averageness', name: '平均顔への近さ', component: 'averageness' },
+];
+// features（8特徴の標準化した値）と、ほかの要素の標準化した値 s から、総合点（0〜100）を作る。researchScore と同じ式
+function totalFrom(features, s, ref) {
+  const mascZ = Object.entries(MASC_FEATURES).map(([k, f]) => f.sign * features[k]);
+  const masc = (mascZ.reduce((t, v) => t + v, 0) / mascZ.length - ref.mascComposite.mean) / ref.mascComposite.sd;
+  const z = { ...s, masculinity: mascPreference(masc, ref.mascPreference) };
+  if (ref.featureJapanese && ref.partWeights) {
+    const fj = Object.keys(ref.partWeights).reduce((t, k) => t + ref.partWeights[k] * features[k], 0);
+    z.featureJapanese = (fj - ref.featureJapanese.mean) / ref.featureJapanese.sd;
+  }
+  const composite = Object.keys(ref.weights).reduce((t, k) => t + (ref.weights[k] || 0) * (z[k] ?? 0), 0);
+  finite(composite, 'composite score');
+  return { total: percentile(ref.compositeSorted, composite), composite };
+}
+const otherParts = (res) => Object.fromEntries(['symmetry', 'averageness', 'japanese'].filter((k) => res.parts[k]).map((k) => [k, res.parts[k].z]));
+// res：researchScore の結果。返り値は効きの大きい順（点数を下げている要素が先）
+export function elementImpacts(res, ref) {
+  const base = totalFrom(res.features, otherParts(res), ref).total;
+  return ELEMENTS.filter((e) => e.features || res.parts[e.component]).map((e) => {
+    const f = { ...res.features }, s = otherParts(res);
+    if (e.features) for (const k of e.features) f[k] = 0; else s[e.component] = 0;
+    return { key: e.key, name: e.name, points: totalFrom(f, s, ref).total - base };
+  }).sort((a, b) => b.points - a.points);
+}
+// 基準の真ん中の人（すべて平均）で、各要素が1標準偏差ぶん好まれない向きにずれたら総合点が何点下がるか（要素の効きの大きさ）。
+// 部位は、日本人の評価者が好む向き（partWeights）の反対へ、その部位の特徴をまとめて1標準偏差動かす。
+export function elementSensitivity(ref) {
+  const zero = Object.fromEntries(Object.keys(MASC_FEATURES).map((k) => [k, 0]));
+  const s0 = { symmetry: 0, averageness: 0, ...(ref.japanese ? { japanese: 0 } : {}) };
+  const base = totalFrom(zero, s0, ref).total;
+  return ELEMENTS.filter((e) => e.features || e.component in s0).map((e) => {
+    const f = { ...zero }, s = { ...s0 };
+    if (e.features) {
+      const w = e.features.map((k) => ref.partWeights?.[k] || 0), len = Math.hypot(...w);
+      e.features.forEach((k, i) => { f[k] = len > 0 ? -w[i] / len : 0; });
+    } else s[e.component] = -1;
+    return { key: e.key, name: e.name, points: base - totalFrom(f, s, ref).total };
+  }).sort((a, b) => b.points - a.points);
+}
+export const recomputeTotal = (res, ref) => totalFrom(res.features, otherParts(res), ref).total; // 要素を動かさずに計算し直した総合点（researchScore と一致するかの確認用）

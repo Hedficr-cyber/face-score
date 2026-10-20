@@ -430,3 +430,20 @@ button.chip { font-family: inherit; cursor: pointer; }
 .tryon-kind { font-size: 10px; color: var(--text-2); }
 .tryon-score { font-family: var(--num); font-size: 12px; color: var(--accent); }
 .tryon-note { margin: 8px 16px 0; font-size: 11px; line-height: 1.6; color: rgba(255,255,255,.7); text-align: center; }
+/* v0.11：点数を上げ下げしている要素 */
+.effects { padding: 6px 16px 10px; }
+.effect-group { margin: 12px 0 2px; font-size: 11px; letter-spacing: .06em; color: var(--text-3); }
+.effect-row { display: grid; grid-template-columns: 6.6em minmax(0, 1fr) 3.9em; align-items: center; gap: 3px 10px; padding: 9px 0 8px; border-top: 1px solid var(--line-2); }
+.effect-group + .effect-row { border-top: 0; }
+.effect-name { font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.effect-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); }
+.effect-bar::after { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 1px; background: var(--line-2); }
+.effect-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
+.effect-row.minus .effect-bar i { background: #e7a49b; }
+.effect-row.flat .effect-bar i { background: var(--text-3); }
+.effect-pts { font-family: var(--num); font-weight: 400; font-size: 17px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.effect-pts small { font-family: var(--font); font-size: 10.5px; color: var(--text-2); margin-left: 2px; }
+.effect-row.plus .effect-pts { color: var(--accent); }
+.effect-row.minus .effect-pts { color: #e7a49b; }
+.effect-note { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; color: var(--text-2); }
+.effects-foot { margin: 10px 2px 0; }
