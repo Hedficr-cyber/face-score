@@ -12,10 +12,10 @@ import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
-import { researchScore, percentileInterval, levelOf, LEVEL_WORDS } from './research-score.js';
+import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
-import { eyewearSVG, EYEWEAR_SHOWCASE } from './eyewear-visuals.js';
+import { openTryOn } from './tryon.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -168,6 +168,29 @@ function levelBlock(R) {
     </div>`;
 }
 
+// 直近の平均：この記録までの、元の点がある記録（新しい順に最大5回）の合成値を平均して、基準の中の順位にする。
+// 本人の29回の記録の解析（2026-10-20）では、1回ごとの点数の標準偏差は約12点、直近5回の平均では約5点だった（主に目の開きの揺れ）。
+function recentAverage(rec) {
+  const evs = store.records().filter((x) => x.raw && x.at <= rec.at).slice(0, 5).map((x) => evaluate(x).research).filter(Boolean);
+  const n = evs.length;
+  if (n < 2) return { n };
+  const cs = evs.map((e) => e.composite), m = cs.reduce((a, b) => a + b, 0) / n;
+  const sdc = Math.sqrt(cs.reduce((a, b) => a + (b - m) ** 2, 0) / (n - 1));
+  const ts = evs.map((e) => e.total), tm = ts.reduce((a, b) => a + b, 0) / n;
+  return { n, total: percentile(RESEARCH_REF.compositeSorted, m), interval: percentileInterval(RESEARCH_REF.compositeSorted, m, sdc / Math.sqrt(n)),
+    perRecordSd: Math.sqrt(ts.reduce((a, b) => a + (b - tm) ** 2, 0) / (n - 1)) };
+}
+function recentBlock(rec) {
+  if (attractivenessModel) return '';
+  const a = recentAverage(rec);
+  if (a.total == null) return `<div class="recent"><p>1回ごとの点数は、目の開き方などで10点前後揺れます。同じ条件で3〜5回測ると、ここに平均が出て点数が安定します。</p></div>`;
+  const [lo, hi] = a.interval.map(Math.round);
+  return `<div class="recent">
+      <div class="recent-head">直近${a.n}回の平均 <b>${Math.round(a.total)}</b><span>点</span>　10段階で <b>${levelOf(a.total)}</b></div>
+      <p>1回ごとの点数は、目の開き方などで揺れます（いまの記録では1回ごとに ±${Math.round(a.perRecordSd)} 点ほど）。${a.n}回の平均の方が確かな目安です。参考範囲 ${lo}〜${hi} 点。${a.n < 5 ? `あと${5 - a.n}回測ると、さらに安定します。` : ''}</p>
+    </div>`;
+}
+
 function meter(v) {
   return `<div class="meter"><i class="${level(v)}" style="width:${Math.max(2, Math.min(100, v)).toFixed(1)}%"></i></div>`;
 }
@@ -202,13 +225,13 @@ function renderResult(rec, { latest }) {
       <div class="hero-date">${dateText(rec.at)}</div>
       <div class="small">${attractivenessModel ? '日本人男性の魅力相対点' : '研究の相対スコア'}</div>
       ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : primaryResearch ? gauge(primaryResearch.total, 'RESEARCH / 100', primaryResearch.interval) : '<h1>未算出</h1>'}
-      ${primaryResearch?.interval ? `<div class="range-text">参考範囲 <b>${Math.round(primaryResearch.interval[0])}〜${Math.round(primaryResearch.interval[1])}</b> 点<span>（推定）</span></div>${levelBlock(primaryResearch)}` : ''}
+      ${primaryResearch?.interval ? `<div class="range-text">参考範囲 <b>${Math.round(primaryResearch.interval[0])}〜${Math.round(primaryResearch.interval[1])}</b> 点<span>（推定）</span></div>${levelBlock(primaryResearch)}${recentBlock(rec)}` : ''}
       ${primaryResearch ? `<p class="score-context">基準 ${RESEARCH_REF.n} 人内の目安</p>` : ''}
       ${attraction?.outsideReference ? '<p class="small" role="status">今回の値は、取り込んだ基準分布の範囲外です。</p>' : ''}
       ${r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : !attraction && !primaryResearch ? `<p class="small" role="${rec.raw ? 'alert' : 'status'}">${rec.raw ? 'この記録の主点は計算できませんでした。' : 'この古い記録には元の点がないため、主点は未算出です。'}</p>` : ''}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
-      ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
+      ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'アクセサリー']].map(([k, t]) =>
         `<button type="button" role="tab" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-tab="${k}">${t}</button>`).join('')}
     </div>
     <div id="tabBody" class="fade-in">${tabBody(rec, r)}</div>
@@ -363,6 +386,31 @@ function researchNotes(r) {
     <p class="small" style="margin-top:10px">総合点＝部位の特徴 ${Math.round(w.featureJapanese * 100)}%・日本人の好みの向き（形）${Math.round(w.japanese * 100)}%・平均顔への近さ ${Math.round(w.averageness * 100)}%・男らしさのバランス ${Math.round(w.masculinity * 100)}% を合わせ、日本人男性 ${RESEARCH_REF.n} 人の中の順位にしたもの。重みはアジア系男性の評価データ（研究用）の前半で、撮影条件の影響を除いて決め、後半で繰り返し開発中の確認を行いました（ρ＝${V.rhoB.toFixed(2)}、95% 区間 ${V.ci95B.map((v) => v.toFixed(2)).join('〜')}。部位の特徴を入れる前は ${V.withoutFeatureRhoB.toFixed(2)}、前の版は ${V.previousVersionRhoB.toFixed(2)}）。基準の日本人男性は公開写真のある著名人・スポーツ選手が中心です。</p>`;
 }
 
+// 内訳ごとの「なぜこの点数か」を一文で（測定値から作る）
+function componentReason(key, R) {
+  const z = R.parts[key]?.z ?? 0;
+  if (key === 'featureJapanese') {
+    const phrase = (d) => {
+      const it = d.items.slice().sort((a, b) => Math.abs(b.weight * b.z) - Math.abs(a.weight * a.z))[0];
+      return `${FEATURE_WORDS[it.key][0]}が${it.z > 0 ? FEATURE_WORDS[it.key][1] : FEATURE_WORDS[it.key][2]}`;
+    };
+    const D = R.partsDetail || [];
+    const up = D.filter((d) => d.influence >= 0.05 && d.score >= 0.4).map(phrase);
+    const down = D.filter((d) => d.influence >= 0.05 && d.score <= -0.4).map(phrase);
+    if (!up.length && !down.length) return '日本人の評価者が好む向きに対して、目立って上げ下げしている部位はなく平均的です。';
+    return [up.length ? `点数を上げている：${up.join('、')}` : '', down.length ? `下げている：${down.join('、')}` : ''].filter(Boolean).join('。') + '（日本人の評価者が好む向きとの比較）。';
+  }
+  if (key === 'japanese') return z >= 0.4 ? '目・眉・鼻・口の並び全体が、日本人の評価者が好む形に近いです。' : z <= -0.4 ? '目・眉・鼻・口の並び全体が、日本人の評価者が好む形から離れています。' : '目・眉・鼻・口の並び全体は、日本人の評価者が好む形との近さが平均くらいです。';
+  if (key === 'averageness') return z >= 0.4 ? 'パーツの形と配置が日本人男性の平均顔に近いです（平均に近い顔ほど魅力的に見えやすい）。' : z <= -0.4 ? 'パーツの形と配置が平均顔から離れていて個性的です（平均に近いほど点が高くなる要素のため低め）。' : 'パーツの形と配置の、平均顔への近さは平均くらいです。';
+  if (key === 'masculinity') {
+    const mi = R.parts.masculinity.mascIndex, opt = RESEARCH_REF.mascPreference.optimum;
+    const side = mi > 0.5 ? '男性寄り' : mi < -0.5 ? '女性寄り' : '平均くらい';
+    const rel = Math.abs(mi - opt) < 0.5 ? 'そこに近いです' : mi > opt ? 'それより男性寄りです' : 'それより女性寄りです';
+    return `顔立ちの男らしさは${side}（${mi >= 0 ? '+' : ''}${mi.toFixed(1)}）。評価が最も高いのは少し女性寄り（${opt.toFixed(1)}）で、${rel}。`;
+  }
+  return '';
+}
+
 // 数値の結果は短く見せ、説明は全タブ共通の末尾へまとめる。
 function researchCard(r) {
   const R = r.research;
@@ -377,6 +425,7 @@ function researchCard(r) {
       return `<article class="component-card">
         <div class="component-heading"><h3>${name}</h3><b>${Math.round(p.pct)}<small>点</small></b></div>
         ${meter(p.pct)}
+        <p class="component-why">${esc(componentReason(key, R))}</p>
         <div class="component-meta"><span>重み ${Math.round(RESEARCH_REF.weights[key] * 100)}%</span><span>参考 ${interval[0]}〜${interval[1]} 点</span></div>
       </article>`;
     }).join('')}</div>
@@ -389,6 +438,7 @@ function scaleCard(r) {
   const caption = { '-3': '低い設定', '0': '中間設定', '3': '高い設定' };
   return `<section aria-label="10段階の目安">
     <h2 class="section-title">10段階の位置 <span>あなたは ${levelOf(r.research.total)} / 10</span></h2>
+    <p class="section-lead">基準の ${RESEARCH_REF.n} 人を点数の順に10のグループ（1グループ約10人）に分けたとき、あなたが入るグループです。10が最上位、1が最下位で、5〜6が真ん中です。下の3つは、日本人の評価者が「魅力が低い・中間・高い」と感じる方向に動かした CG の顔を、このアプリで測った段階です。点数の高さのイメージとして見てください（実在の人ではありません）。</p>
     <div class="card visual-scale"><div class="anchor-row">${RESEARCH_REF.anchors.map(a => `<figure>
       <img src="img/${image[a.sd]}.jpg" width="240" height="300" alt="${caption[a.sd]}のCG見本。アプリでの段階${a.level}" loading="lazy">
       <figcaption><b>${a.level}<small> / 10</small></b><span>${caption[a.sd]}</span></figcaption>
@@ -449,7 +499,7 @@ function resultNotes(rec, r) {
     </div></details>`;
 }
 
-function rankList(list, all, frameExamples = false) {
+function rankList(list, all, kind = 'hair') {
   const shown = all ? list : list.slice(0, 5);
   return `<div class="rank">${shown.map((h, i) => `
     <article class="rank-card${i === 0 ? ' best' : ''}">
@@ -458,18 +508,18 @@ function rankList(list, all, frameExamples = false) {
         <span class="rank-name">${esc(h.name)}${i === 0 ? '<span class="rank-tag">BEST</span>' : ''}</span>
         <span class="rank-score">${Math.round(h.score)}</span>
       </div>
-      ${frameExamples ? `<div class="frame-example">${eyewearSVG(h.id, h.kind)}</div>` : ''}
       ${meter(h.score)}
-      <details class="rank-detail"><summary>選び方・理由</summary><ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
-      <div class="rank-tip"><b>伝え方・選び方</b>　${esc(h.tip)}</div>
-      </details>
+      <div class="rank-tip"><b>${kind === 'hair' ? '美容室での頼み方' : '選ぶときのポイント'}</b>${esc(h.tip)}</div>
+      ${kind === 'eyewear' ? `<button class="btn ghost tryon-btn" type="button" data-act="tryon" data-id="${esc(h.id)}">この形を自分の顔で試す</button>` : ''}
+      <div class="rank-reasons"><b>この点数の理由</b><ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
+      </div>
     </article>`).join('')}</div>`;
 }
 
 function hairTab(r) {
   return `
     <div class="label">Hair style</div>
-    ${rankList(r.hair, ui.allHair)}
+    ${rankList(r.hair, ui.allHair, 'hair')}
     ${r.hair.length > 5 && !ui.allHair ? `<button class="more" type="button" data-act="allHair">すべて見る（${r.hair.length}）</button>` : ''}
     <p class="small" style="margin-top:14px">点数＝顔の形との相性（「定番」：美容室で定番の考え方による目安）に、あなたの測定値（「測定」：縦横の比率・おでこの広さ・あごの幅、部位の強み・弱み）をどれだけ生かせるか・整えられるかを足したもの。目元・眉と目の距離の向き（どちらが好まれるか）は、日本人の評価者の研究（Nakamura & Watanabe 2020）と評価データで確かめたものです。</p>`;
 }
@@ -482,8 +532,12 @@ function eyewearTab(r) {
       <button type="button" aria-pressed="${ui.eyewear === 'glasses'}" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
       <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
+    <div class="card tryon-cta">
+      <p><b>自分の顔で試着</b>カメラに映った今の顔と髪型に、フレームを実際の大きさで重ねて見られます。映像はスマホの中だけで処理し、保存も送信もしません。</p>
+      <button class="btn block" type="button" data-act="tryon" data-id="${esc(list[0]?.id || '')}">試着をはじめる</button>
+    </div>
     <h2 class="section-title">似合う${ui.eyewear === 'sun' ? 'サングラス' : 'メガネ'}</h2>
-    ${rankList(list, true, true)}
+    ${rankList(list, true, 'eyewear')}
     <h2 class="section-title">サイズの目安</h2>
     <div class="card">
       ${s ? `<div class="size-grid">
@@ -495,10 +549,7 @@ function eyewearTab(r) {
       <p class="small" style="margin:6px 0 0">「定番」は美容室・メガネ店で定番の考え方による目安、「測定」はあなたの測定値（縦横比・あご幅・目元・眉と目の距離）、「研究」は研究の結果にもとづく理由です。顔の形の判定は平均顔のデータにもとづきます。</p>
       <p class="small" style="margin:6px 0 0">研究の知見：メガネをかけると知的に見える一方、魅力はやや下がって見えやすい。ただしフチなしでは信頼感が上がり、魅力は下がらなかった。メガネは目元に視線を集める（Leder・Forster・Gerger 2011、ヨーロッパでの実験）。</p>
     </div>
-    <details class="result-notes example-gallery"><summary>フレームの見本写真を見る</summary>
-      <img src="${EYEWEAR_SHOWCASE}" width="1536" height="1024" alt="6種類のメガネの生成見本。本人の試着画像ではありません" loading="lazy">
-      <p class="small">形をイメージするための生成画像です。実際の商品や本人の試着を表すものではありません。</p>
-    </details>`;
+`;
 }
 
 // ---------- 記録 ----------
@@ -517,7 +568,8 @@ function renderHistory() {
   }
   const rows = recs.map((rec) => { const r = evaluate(rec); return { rec, r, value: displayedScore(r) }; });
   const totals = rows.map((x) => x.value).filter(Number.isFinite);
-  const best = totals.length ? Math.max(...totals) : null;
+  // 1回ごとの点数は揺れるので「最高」は出さず、直近5回の平均を出す（2026-10-20）
+  const recentAvg = attractivenessModel ? null : (recentAverage(rows[0].rec).total ?? null);
   const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null;
   const num = (v) => v == null ? '—' : one(v);
   const chrono = rows.filter((x) => x.value != null).slice(0, 30).reverse().map((x) => ({ at: x.rec.at, total: x.value }));
@@ -527,7 +579,7 @@ function renderHistory() {
       <p class="small">${metricLabel()}。比率スコアは主点の集計に含みません。各記録の参考範囲は、2つの記録の差を検定したものではありません。小さな点差だけで変化を断定しないでください。元の点がない古い記録（v0.1）も集計に含みません。</p>
       <div class="stats">
         <div><b>${num(rows[0].value)}</b><span>最新</span></div>
-        <div><b>${num(best)}</b><span>最高</span></div>
+        <div><b>${num(recentAvg)}</b><span>直近5回の平均</span></div>
         <div><b>${num(avg)}</b><span>平均</span></div>
         <div><b>${recs.length}</b><span>回数</span></div>
       </div>
@@ -580,6 +632,12 @@ function route() {
   window.scrollTo(0, 0);
 }
 
+// いま表示している記録（#r/… ならその記録、そうでなければ最新）
+function currentRecord() {
+  const hash = location.hash || '#result';
+  try { return hash.startsWith('#r/') ? store.get(decodeURIComponent(hash.slice(3))) : store.latest(); } catch { return null; }
+}
+
 function rerenderTab() {
   const body = $('#tabBody');
   const hash = location.hash || '#result';
@@ -614,6 +672,14 @@ view.addEventListener('click', (e) => {
   if (act === 'calib') openCalibSheet();
   if (act === 'allHair') { ui.allHair = true; rerenderTab(); }
   if (act === 'export') exportData();
+  if (act === 'tryon') {
+    const rec = currentRecord();
+    const r = rec ? evaluate(rec) : null;
+    if (r) {
+      const items = ['glasses', 'sunglasses'].flatMap((k) => r.glasses.filter((g) => g.kind === k)).map((g) => ({ id: g.id, name: g.name, kind: g.kind, score: g.score }));
+      openTryOn({ items, startId: t.dataset.id || items[0]?.id });
+    }
+  }
   if (act === 'import') importData();
   if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => {
     if (!store.clear()) { toast('削除を保存できませんでした。記録は残っています'); return; }

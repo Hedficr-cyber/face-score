@@ -39,6 +39,14 @@ function safeFrontalShape(P, hairline) {
   return lengths > MIN_SPAN ** 2 && num(cosine) && Math.abs(cosine) <= 1;
 }
 
+// 撮影ごとの目の状態（0〜1 の数値5つ）。形が合わなければ捨てる（記録自体は読む）
+const EYE_KEYS = ['blink', 'lookDown', 'lookUp', 'squint', 'wide'];
+function cleanEye(eye, n) {
+  if (!Array.isArray(eye) || eye.length !== n) return null;
+  const ok = eye.every((e) => e && typeof e === 'object' && EYE_KEYS.every((k) => num(e[k]) && e[k] >= 0 && e[k] <= 1));
+  return ok ? eye.map((e) => Object.fromEntries(EYE_KEYS.map((k) => [k, e[k]]))) : null;
+}
+
 function cleanHairline(h) {
   if (!h || typeof h !== 'object') return null;
   if (h.source === 'manual' && num(h.k)) return { source: 'manual', k: h.k, auto: !!h.auto };
@@ -70,6 +78,8 @@ function cleanRecord(r, focals) {
       zScale: num(r.raw.zScale) ? r.raw.zScale : 1,
       calibrated: r.raw.calibrated === true,
     };
+    const eye = cleanEye(r.raw.eye, shots.length);
+    if (eye) rec.raw.eye = eye;
     // 再書き出しした端末の settings は元のカメラの値とは限らない。
     // 初回の読み込みだけ書き出し元の較正を使い、未較正なら撮影時の値・元の既定値を固定する。
     const cal = cleanCal(r.raw.cal) || (!r.imported && cleanCal(focals[camKey(w, h)]));

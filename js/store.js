@@ -62,6 +62,8 @@ export const store = {
     // 生の点：焦点距離を較正し直したら、ここから正面の点を作り直す（v0.2.0〜）。各回の正面の点は生の点から作れるので持たない
     if (raw) {
       rec.raw = { w: raw.w, h: raw.h, shots: raw.shots.map(packRaw), focal: Math.round(raw.focal), zScale: raw.zScale || 1, calibrated: !!raw.calibrated };
+      // 撮影ごとの目の状態（v0.8.1〜。揺れの原因の確認用。点数の計算には使わない）
+      if (Array.isArray(raw.eye) && raw.eye.length === raw.shots.length) rec.raw.eye = raw.eye.map((e) => ({ ...e }));
       delete rec.shots;
     }
     return write({ ...state, records: [...state.records, rec] }) ? rec : null;

@@ -1,6 +1,5 @@
 // Front-view frame diagrams. These show shape only, never the user's face or actual fit.
 // Kept as native SVG so each recommendation has a precise, lightweight example.
-export const EYEWEAR_SHOWCASE = './img/eyewear-showcase-2026-10-20.png';
 
 const SHAPES = {
   wellington: {
@@ -51,14 +50,18 @@ export function eyewearExampleLabel(id, type = 'glasses') {
   return s ? `${s.name}${s.tinted && s.shapeId !== 'teardrop' ? '型サングラス' : ''}：${s.description}。形の例で、本人の試着画像ではありません。` : '';
 }
 
-export function eyewearSVG(id, type = 'glasses') {
+// 試着（tryon.js）で顔に重ねるときの基準：左右のレンズの中心は x=92・228（間隔 136）、黒目は y≈72 の高さに来る
+export const TRYON_GEOMETRY = { lensCenterGap: 136, pupilX: 160, pupilY: 72, width: 320, height: 150 };
+
+export function eyewearSVG(id, type = 'glasses', { overlay = false } = {}) {
   const s = styleOf(id, type);
   if (!s) return '';
   const label = eyewearExampleLabel(id, type);
-  const metal = '#d9c79e';
-  const frame = s.thickness > 4 ? '#a79578' : metal;
-  const lensFill = s.tinted ? '#52606a' : '#b8d6e3';
-  const opacity = s.tinted ? '.72' : '.10';
+  // 顔に重ねるときは、実物に近い色（黒っぽいセル・金属）にし、透明レンズはほぼ透明にする
+  const metal = overlay ? '#3a3631' : '#d9c79e';
+  const frame = s.thickness > 4 ? (overlay ? '#1e1b18' : '#a79578') : metal;
+  const lensFill = s.tinted ? (overlay ? '#1d2329' : '#52606a') : '#b8d6e3';
+  const opacity = s.tinted ? (overlay ? '.78' : '.72') : (overlay ? '.04' : '.10');
   const rimOpacity = s.shapeId === 'rimless' ? '.44' : '1';
   const bridge = s.shapeId === 'teardrop'
     ? `<path d="M 140 59 Q 160 47 180 59 M 129 37 Q 160 29 191 37"/>`
@@ -74,7 +77,7 @@ export function eyewearSVG(id, type = 'glasses') {
     : `<path d="M 45 56 L 51 56 M 269 56 L 275 56" stroke="${metal}" stroke-width="2.4"/>`;
   return `<svg class="eyewear-example" viewBox="0 0 320 150" width="320" height="150" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg">
     <title>${label}</title>
-    <ellipse cx="160" cy="129" rx="113" ry="4" fill="#000" fill-opacity=".14" stroke="none"/>
+    ${overlay ? '' : '<ellipse cx="160" cy="129" rx="113" ry="4" fill="#000" fill-opacity=".14" stroke="none"/>'}
     <g stroke-linecap="round" stroke-linejoin="round">
       <g stroke="${frame}" stroke-width="${s.thickness > 4 ? 5 : 2.6}" fill="none"><path d="M 22 72 L 43 55 M 298 72 L 277 55"/>${bridge}</g>
       ${half}<g transform="translate(320 0) scale(-1 1)">${half}</g>${pads}${joints}

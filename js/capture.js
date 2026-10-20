@@ -129,6 +129,9 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
   const shots = [];
   const rawShots = [];
   const shotWidths = [];
+  // 撮影ごとの目の状態（まばたき・下/上を見る・細める・見開く）。点数の揺れの原因を後から確かめるために記録だけする（判定には使わない）
+  const eyeShots = [];
+  let eyeBuffer = [];
   let buffer = [];
   let rawBuffer = [];
   let faceWidths = [];
@@ -144,7 +147,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
   // 不成立になった「今の1枚」は、生の点も含めてまとめて捨てる。
   // 撮り終えた1枚目の写真は、生え際合わせに使うため残す。
   const resetShot = () => {
-    hold = 0; buffer = []; rawBuffer = []; faceWidths = [];
+    hold = 0; buffer = []; rawBuffer = []; faceWidths = []; eyeBuffer = [];
     if (!shots.length && snapshot) {
       snapshot.canvas.width = 0; snapshot.canvas.height = 0;
       snapshot = null;
@@ -162,7 +165,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     if (frameWidth && (frameWidth !== w || frameHeight !== h)) {
       // 生の点はそのときの映像サイズに対する正規化座標。向き・解像度が変わったら、
       // 成立済みの写真や較正の向きも含めて取り直し、最後のサイズで混ぜて保存しない。
-      shots.length = 0; rawShots.length = 0; shotWidths.length = 0;
+      shots.length = 0; rawShots.length = 0; shotWidths.length = 0; eyeShots.length = 0;
       resetShot();
       for (const key of Object.keys(views)) delete views[key];
       turnBuf = []; turnKey = null; prev = null;
@@ -241,6 +244,9 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     buffer.push(P);
     rawBuffer.push(lm.map((p) => [p.x, p.y, p.z]));
     faceWidths.push(Math.hypot((lm[454].x - lm[234].x) * w, (lm[454].y - lm[234].y) * h) / Math.min(w, h));
+    const pair = (n) => [blend(result, n + 'Left'), blend(result, n + 'Right')];
+    const avg2 = (n) => (pair(n)[0] + pair(n)[1]) / 2;
+    eyeBuffer.push({ blink: Math.max(...pair('eyeBlink')), lookDown: avg2('eyeLookDown'), lookUp: avg2('eyeLookUp'), squint: avg2('eyeSquint'), wide: avg2('eyeWide') });
     if (!snapshot && buffer.length === Math.ceil(C.framesPerShot / 2)) {
       // 生え際の調整用に今のフレームを1枚だけメモリに残す
       const shotCanvas = document.createElement('canvas');
@@ -259,7 +265,8 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     // 生の点（正規化座標）の平均も残す。焦点距離を較正し直したとき、あとから補正をやり直せるように
     rawShots.push(averagePoints(rawBuffer).map(([x, y, z]) => ({ x, y, z })));
     shotWidths.push(faceWidths.reduce((s, v) => s + v, 0) / faceWidths.length);
-    buffer = []; rawBuffer = []; faceWidths = []; hold = 0;
+    eyeShots.push(Object.fromEntries(['blink', 'lookDown', 'lookUp', 'squint', 'wide'].map((k) => [k, Math.round(1000 * eyeBuffer.reduce((s, e) => s + (Number.isFinite(e[k]) ? e[k] : 0), 0) / eyeBuffer.length) / 1000])));
+    buffer = []; rawBuffer = []; faceWidths = []; eyeBuffer = []; hold = 0;
     waitUntil = performance.now() + C.gapMs;
     onShot(shots.length);
     onProgress(shots.length, 0);
@@ -267,7 +274,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
       const points = averagePoints(shots);
       stop();
       const faceWidth = shotWidths.reduce((s, v) => s + v, 0) / shotWidths.length;
-      onDone({ points, shots, snapshot, raw: { w, h, shots: rawShots, focal, zScale: zs, calibrated: cam.calibrated }, faceWidth });
+      onDone({ points, shots, snapshot, raw: { w, h, shots: rawShots, focal, zScale: zs, calibrated: cam.calibrated, eye: eyeShots.slice() }, faceWidth });
     }
   };
 
