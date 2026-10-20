@@ -59,31 +59,31 @@ svg .fill { fill: currentColor; stroke: none; }
 .icon-btn:active { background: var(--surface-2); }
 .view { padding: 4px 20px calc(var(--safe-b) + 120px); outline: none; }
 
-/* 下のナビ（ガラス） */
+/* 下のナビ（Liquid Glass風）。ぼかし非対応時も背景を十分に濃くする */
 .tabbar {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(var(--safe-b) + 14px); z-index: 30;
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px;
-  width: min(320px, calc(100% - 40px)); height: 66px; padding: 0 10px;
-  border-radius: 33px;
-  background: rgba(30, 30, 33, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(22px) saturate(160%);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; gap: 8px;
+  width: min(360px, calc(100% - 32px)); height: 78px; padding: 8px;
+  border-radius: 40px;
+  background: linear-gradient(135deg, rgba(255,255,255,.1), transparent 46%), rgba(27, 28, 33, .96);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(255,255,255,.06);
 }
-.tab { display: grid; justify-items: center; gap: 1px; color: var(--text-3); font-size: 10.5px; letter-spacing: 0.08em; padding: 6px 0; }
-.tab svg { width: 23px; height: 23px; }
-.tab.active { color: var(--text); }
-.tab-shoot {
-  width: 54px; height: 54px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--text); color: #0b0b0c;
-  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.06);
-  transition: transform 0.15s ease;
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tabbar {
+    background: linear-gradient(135deg, rgba(255,255,255,.14), transparent 46%), rgba(27,28,33,.7);
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+  }
 }
-.tab-shoot svg { width: 26px; height: 26px; stroke-width: 1.8; }
-.tab-shoot:active { transform: scale(0.94); }
+.tab, .tab-shoot { position: relative; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 60px; min-width: 0; padding: 5px 0; border: 1px solid transparent; border-radius: 31px; color: #c3c4cb; font-size: 12px; letter-spacing: .06em; font-weight: 500; transition: background .2s ease, box-shadow .2s ease, transform .15s ease; }
+.tab svg, .tab-shoot svg { width: 23px; height: 23px; }
+.tab.active { color: var(--text); font-weight: 700; border-color: rgba(255,255,255,.4); background: linear-gradient(145deg, rgba(255,255,255,.24), rgba(217,199,158,.17)); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 14px rgba(0,0,0,.25); }
+.tab.active svg { stroke-width: 2.1; }
+.tab-shoot svg { color: var(--accent); }
+.tab:active, .tab-shoot:active { transform: scale(.96); background-color: rgba(255,255,255,.1); }
+.tabbar :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 31px; }
 
 /* 共通の部品 */
 .label { font-family: var(--num); font-size: 11px; letter-spacing: 0.24em; color: var(--text-3); text-transform: uppercase; margin: 30px 2px 12px; }
@@ -219,6 +219,20 @@ button.chip { font-family: inherit; cursor: pointer; }
 .chart .dot { fill: var(--bg); stroke: var(--text); stroke-width: 1.5; }
 .chart .dot.last { fill: var(--accent); stroke: var(--accent); }
 .list { display: grid; gap: 8px; }
+.history-fold { margin-top: 24px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 22px; }
+.history-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 78px; padding: 16px 18px; cursor: pointer; list-style: none; }
+.history-fold > summary::-webkit-details-marker { display: none; }
+.history-fold .fold-copy { display: grid; gap: 5px; }
+.history-fold strong { font-size: 15px; font-weight: 600; }
+.history-fold .fold-count { margin-left: 8px; font-family: var(--num); font-size: 12px; color: var(--text-2); font-weight: 400; }
+.history-fold .fold-hint { font-size: 12px; color: var(--text-2); }
+.history-fold .chev { width: 20px; height: 20px; flex: none; color: var(--text-2); transition: transform .2s ease; }
+.history-fold[open] .chev { transform: rotate(180deg); }
+.history-fold .when-open, .history-fold[open] .when-closed { display: none; }
+.history-fold[open] .when-open { display: inline; }
+.history-fold > .list { padding: 0 8px 8px; }
+.camera-settings { margin-top: 28px; padding-top: 4px; border-top: 1px solid var(--line-2); }
+.camera-settings h2 { font-size: 18px; font-weight: 500; margin: 18px 0 8px; }
 .row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-s); }
 .row-date { font-family: var(--num); font-size: 13px; letter-spacing: 0.06em; }
 .row-sub { font-size: 12px; color: var(--text-3); }

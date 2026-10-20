@@ -29,7 +29,7 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
   },
 } : null;
 
-const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false };
+const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false, historyOpen: false };
 let attractivenessModel = null;
 try { attractivenessModel = validateJapaneseMaleModel(store.setting('attractivenessModel')); } catch { /* 日本人男性の基準がなければ主点は未算出 */ }
 // 主点：日本人男性の評価付きモデルを取り込んでいればそれ、なければ研究の知見による相対点（2026-10-19 本人の決定）
@@ -179,7 +179,6 @@ function renderWelcome() {
     <p>鏡に向かうような正面顔を3回撮って平均します。<br>写真は保存せず、どこにも送りません。</p>
     <p class="small">日本人の評価者が好む部位の特徴と顔の形、研究で魅力との関係が確かめられた要素（平均顔への近さ・男らしさのバランス）を合わせ、著名人・スポーツ選手中心の基準 ${RESEARCH_REF.n} 人の中の順位（50点が真ん中）と10段階で出します。日本人男性全体の順位ではありません。</p>
     <button class="btn" type="button" data-act="shoot">測定をはじめる</button>
-    ${Object.keys(store.setting('focals') || {}).length ? '' : '<div style="margin-top:12px"><button class="btn ghost" type="button" data-act="calib">先にカメラを較正する（約30秒）</button></div>'}
     <ul class="tips">
       <li><span>01</span>明るい場所で、顔に影ができないように</li>
       <li><span>02</span>メガネを外し、前髪を上げておでこを出す</li>
@@ -204,9 +203,9 @@ function renderResult(rec, { latest }) {
     r.spread != null ? `<span class="chip">比率のぶれ ±${one(r.spread)}</span>` : '',
     `<span class="chip">生え際 ${m.thirds.hairlineSet ? '指定' : '推定'}</span>`,
     r.calibrated == null ? '<span class="chip">比率の遠近補正なし（v0.1 の記録）</span>'
-      : r.calibrated ? (calibCount(rec) === 1 ? '<button class="chip warn" type="button" data-act="calib">較正1回（複数回で安定を確認）›</button>' : '<span class="chip">比率の遠近補正 較正済み</span>')
+      : r.calibrated ? `<span class="chip">比率の遠近補正 較正済み${calibCount(rec) === 1 ? '（1回）' : ''}</span>`
         : rec.imported ? '<span class="chip">比率の遠近補正 未較正（元の端末）</span>'
-          : '<button class="chip warn" type="button" data-act="calib">比率の遠近補正 未較正 ›</button>',
+          : '<span class="chip">比率の遠近補正 未較正</span>',
     rec.imported ? '<span class="chip">読み込んだ記録</span>' : '',
   ].join('');
 
@@ -422,10 +421,17 @@ function eyewearTab(r) {
 }
 
 // ---------- 記録 ----------
+function cameraSettings() {
+  return `<section class="camera-settings" aria-labelledby="cameraSettingsTitle">
+    <h2 id="cameraSettingsTitle">遠近の補正</h2>
+    <p class="small">撮影する端末のカメラを較正します。複数回の結果で値の安定を確かめられます。</p>
+    <button class="btn ghost block" type="button" data-act="calib">遠近の補正（カメラの較正）</button>
+  </section>`;
+}
 function renderHistory() {
   const recs = store.records();
   if (!recs.length) {
-    view.innerHTML = `<div class="empty fade-in">まだ記録がありません。<br><br><button class="btn" type="button" data-act="shoot">測定をはじめる</button><div style="margin-top:12px"><button class="btn ghost" type="button" data-act="import">書き出した記録を読み込む（JSON）</button></div></div>`;
+    view.innerHTML = `<div class="empty fade-in">まだ記録がありません。<br><br><button class="btn" type="button" data-act="shoot">測定をはじめる</button><div style="margin-top:12px"><button class="btn ghost" type="button" data-act="import">書き出した記録を読み込む（JSON）</button></div></div>${cameraSettings()}`;
     return;
   }
   const rows = recs.map((rec) => { const r = evaluate(rec); return { rec, r, value: displayedScore(r) }; });
@@ -445,7 +451,8 @@ function renderHistory() {
         <div><b>${recs.length}</b><span>回数</span></div>
       </div>
       ${chrono.length ? `<div class="card chart">${chartSVG(chrono)}</div>` : '<p class="small">主点を計算できる記録がありません。元の点がある記録（v0.2 以降）で計算します。</p>'}
-      <div class="label">History</div>
+      <details class="history-fold" id="historyList"${ui.historyOpen ? ' open' : ''}>
+      <summary><span class="fold-copy"><strong>記録一覧<span class="fold-count">${recs.length}件</span></strong><span class="fold-hint">History · <span class="when-closed">タップして開く</span><span class="when-open">タップして閉じる</span></span></span>${icon.chev}</summary>
       <div class="list">${rows.map(({ rec, r, value }, i) => {
         const prev = rows[i + 1];
         const d = prev?.value != null && value != null ? value - prev.value : null;
@@ -454,14 +461,19 @@ function renderHistory() {
           <div class="row-delta${d != null && d > 0 ? ' up' : ''}">${d == null ? '' : `${d >= 0 ? '+' : ''}${one(d)}`}</div>
           <div class="row-score">${num(value)}</div>
         </a>`;
-      }).join('')}</div>
+      }).join('')}</div></details>
       <div class="actions">
         <button class="btn ghost block" type="button" data-act="export">データを書き出す（JSON）</button>
         <button class="btn ghost block" type="button" data-act="import">書き出した記録を読み込む（JSON）</button>
         <button class="btn danger block" type="button" data-act="clear">すべての記録を削除</button>
       </div>
+      ${cameraSettings()}
     </div>`;
 }
+
+view.addEventListener('toggle', (event) => {
+  if (event.target.id === 'historyList') ui.historyOpen = event.target.open;
+}, true);
 
 // ---------- 画面の切り替え ----------
 function route() {
@@ -469,7 +481,12 @@ function route() {
   if (hash.startsWith('#r/')) {
     try { decodeURIComponent(hash.slice(3)); } catch { location.hash = '#history'; return; }
   }
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', hash.startsWith(`#${t.dataset.tab}`) || (t.dataset.tab === 'history' && hash.startsWith('#r/'))));
+  const destination = hash === '#history' || hash.startsWith('#r/') ? 'history' : 'result';
+  document.querySelectorAll('.tab').forEach((t) => {
+    const active = t.dataset.tab === destination;
+    t.classList.toggle('active', active);
+    if (active) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+  });
   if (hash.startsWith('#r/')) {
     const rec = store.get(decodeURIComponent(hash.slice(3)));
     if (!rec) { location.replace('#history'); return; }
@@ -621,7 +638,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>メガネのサイズは黒目の大きさ（平均 11.7mm）から推定した目安です。</li>
     <li>近くから撮ったときの遠近の歪み（鼻が大きく・輪郭が細く写る）は、顔の点の奥行きとカメラの画角から取り除いています。画角は端末ごとに、Face ID の登録のように顔を上下左右に回して較正します。較正し直すと、過去の記録も新しい値で計算し直します。</li>
   </ul>
-  <div class="actions" style="margin-top:10px"><button class="btn ghost block" type="button" id="infoCalib">カメラを較正する（遠近の補正）</button></div>
+  <p class="small">カメラの較正は「記録」のいちばん下にある「遠近の補正」から行えます。</p>
   <h3>データ</h3>
   <ul>
     <li>写真は保存せず、どこにも送りません。保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。</li>
@@ -629,7 +646,6 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   </ul>
   <p class="small" style="margin-top:18px">バージョン ${VERSION}・3枚×${CAPTURE.framesPerShot}フレームの平均</p>
 `));
-$('#sheet').addEventListener('click', (e) => { if (e.target.id === 'infoCalib') { closeSheet(); openCalibSheet(); } });
 sheet.addEventListener('click', (e) => {
   if (e.target.id === 'importAttractiveness') $('#attractivenessFile').click();
   if (e.target.id === 'removeAttractiveness') {
