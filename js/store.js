@@ -1,12 +1,19 @@
 // 端末内の保存（localStorage）。写真は保存しない。保存するのは正面にそろえた点の座標と設定だけ。
 const KEY = 'face-score:v1';
+let snapshot = null, readable = false, revision = 0;
 
 function read() {
   try {
     const raw = localStorage.getItem(KEY);
     const data = raw ? JSON.parse(raw) : null;
-    if (data && Array.isArray(data.records)) return { records: data.records, settings: data.settings || {} };
+    if (raw == null || (data && Array.isArray(data.records)
+      && (!data.settings || (typeof data.settings === 'object' && !Array.isArray(data.settings))))) {
+      if (snapshot !== raw) revision++;
+      snapshot = raw; readable = true;
+      return data ? { records: data.records, settings: data.settings || {} } : { records: [], settings: {} };
+    }
   } catch (e) { /* 読めないときは空で始める */ }
+  readable = false;
   return { records: [], settings: {} };
 }
 
@@ -15,7 +22,16 @@ let state = read();
 // 保存に成功した変更だけをメモリにも反映する。容量不足でも既存の記録は削らない。
 function write(next) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    // 別画面が更新した保存内容を、古いメモリから丸ごと上書きしない。
+    // 変更を再読込して今回の書込は中断。撮影/読込内容は画面に残して再試行する。
+    if (!readable || localStorage.getItem(KEY) !== snapshot) {
+      state = read();
+      return false;
+    }
+    const raw = JSON.stringify(next);
+    localStorage.setItem(KEY, raw);
+    snapshot = raw;
+    revision++;
     state = next;
     return true;
   } catch (e) {
@@ -29,6 +45,8 @@ const packRaw = (lm) => lm.map((p) => [p.x, p.y, p.z].map((v) => Math.round(v * 
 export const unpackRaw = (arr) => arr.map(([x, y, z]) => ({ x, y, z }));
 
 export const store = {
+  revision: () => revision,
+  refresh() { state = read(); return readable; },
   records: () => state.records.slice().sort((a, b) => (a.at < b.at ? 1 : -1)),
   get: (id) => state.records.find((r) => r.id === id) || null,
   latest() { return this.records()[0] || null; },

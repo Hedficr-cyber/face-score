@@ -1,18 +1,42 @@
 // 「データを書き出す（JSON）」で作ったファイル（store.exportText の形）から記録を読み込む。
 // 中身は一つずつ確かめ、決まった形の値だけを新しく作り直して使う（知らない項目は捨てる）。
 // 他の端末の記録には、書き出した時点のその端末の較正値（焦点距離・奥行きの倍率）を付ける。
-// 記録は開いた端末の較正値で計算し直すため、付けないと PC では元の端末と違う点数になる。
+// 未較正の記録にも元のカメラ値と状態を残し、読み込み先の端末の較正値を混ぜない。
+import { cameraForRecord } from './record-camera.js';
+import { frontalFromRaw } from './calibration.js';
+import { browLineY } from './analysis.js';
+import { averagePoints } from './geometry.js';
 export const IMPORT_LIMITS = { bytes: 20 * 1024 * 1024, records: 500, shots: 10 };
 
 const ID = /^r[0-9a-z]{4,24}$/;
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
-const point3 = (p) => Array.isArray(p) && p.length === 3 && p.every(num);
+// 計測の良し悪しの基準ではなく、桁あふれ・ゼロ除算を防ぐための十分広い限界。
+const COORD_LIMIT = 1e6, MIN_SPAN = 1e-8;
+const coordinate = (v) => num(v) && Math.abs(v) <= COORD_LIMIT;
+const point3 = (p) => Array.isArray(p) && p.length === 3 && p.every(coordinate);
 const points = (a, sizes) => Array.isArray(a) && sizes.includes(a.length) && a.every(point3);
 const camKey = (w, h) => `${Math.max(w, h)}x${Math.min(w, h)}`;
 
 function cleanCal(c) {
-  if (!c || typeof c !== 'object' || !num(c.focal) || c.focal <= 0 || c.focal > 1e5) return null;
-  return { focal: c.focal, zScale: num(c.zScale) && c.zScale > 0.1 && c.zScale < 10 ? c.zScale : 1 };
+  if (!c || typeof c !== 'object' || !num(c.focal) || c.focal < 1e-6 || c.focal > 1e5) return null;
+  return { focal: c.focal, zScale: num(c.zScale) && c.zScale > 0.1 && c.zScale < 10 ? c.zScale : 1,
+    calibrated: c.calibrated === undefined ? true : c.calibrated === true };
+}
+
+function safeFrontalShape(P, hairline) {
+  if (!points(P, [468, 478])) return false;
+  const x = (i) => P[i][0], y = (i) => P[i][1];
+  const brow = browLineY(P), middle = brow - y(2), lower = y(2) - y(152);
+  const manual = hairline?.source === 'manual';
+  const hairY = brow + (manual ? hairline.k : 1) * middle;
+  const denominators = [x(454) - x(234), (x(133) - x(33) + x(263) - x(362)) / 2,
+    x(362) - x(133), x(358) - x(129), (y(13) + y(14)) / 2 - y(152), x(356) - x(127),
+    manual ? hairY - y(152) : middle + lower];
+  if (!coordinate(hairY) || !denominators.every((v) => num(v) && v > MIN_SPAN)) return false;
+  const u = [x(172) - x(152), y(172) - y(152)], v = [x(397) - x(152), y(397) - y(152)];
+  const lengths = Math.hypot(...u) * Math.hypot(...v);
+  const cosine = (u[0] * v[0] + u[1] * v[1]) / lengths;
+  return lengths > MIN_SPAN ** 2 && num(cosine) && Math.abs(cosine) <= 1;
 }
 
 function cleanHairline(h) {
@@ -34,6 +58,7 @@ function cleanRecord(r, focals) {
     hairline: cleanHairline(r.hairline),
     imported: true,
   };
+  if (!safeFrontalShape(rec.points, rec.hairline)) return null;
   if (r.raw && typeof r.raw === 'object') {
     const { w, h, shots } = r.raw;
     if (!Number.isInteger(w) || !Number.isInteger(h) || w < 16 || h < 16 || w > 10000 || h > 10000) return null;
@@ -43,14 +68,22 @@ function cleanRecord(r, focals) {
       shots: shots.map((s) => s.map((p) => p.slice())),
       focal: num(r.raw.focal) ? r.raw.focal : null,
       zScale: num(r.raw.zScale) ? r.raw.zScale : 1,
-      calibrated: !!r.raw.calibrated,
+      calibrated: r.raw.calibrated === true,
     };
-    // すでに別の端末から読み込んだ記録なら、最初の端末の較正値をそのまま引き継ぐ
-    const cal = cleanCal(r.raw.cal) || cleanCal(focals[camKey(w, h)]);
+    // 再書き出しした端末の settings は元のカメラの値とは限らない。
+    // 初回の読み込みだけ書き出し元の較正を使い、未較正なら撮影時の値・元の既定値を固定する。
+    const cal = cleanCal(r.raw.cal) || (!r.imported && cleanCal(focals[camKey(w, h)]));
     if (cal) rec.raw.cal = cal;
+    rec.raw.cal = cameraForRecord(rec, null);
+    // 元のカメラ値で作り直す経路も検査する。生の点だけが退化しているファイルも保存しない。
+    const cam = rec.raw.cal;
+    try {
+      const frontal = rec.raw.shots.map((s) => frontalFromRaw(s.map(([x, y, z]) => ({ x, y, z })), w, h, cam.focal, cam.zScale));
+      if (!frontal.every((s) => safeFrontalShape(s, rec.hairline)) || !safeFrontalShape(averagePoints(frontal), rec.hairline)) return null;
+    } catch { return null; }
   } else if (r.shots != null) {
     // 元の点がない古い記録（v0.1）
-    if (!Array.isArray(r.shots) || r.shots.length > IMPORT_LIMITS.shots || !r.shots.every((s) => points(s, [468, 478]))) return null;
+    if (!Array.isArray(r.shots) || r.shots.length > IMPORT_LIMITS.shots || !r.shots.every((s) => safeFrontalShape(s, rec.hairline))) return null;
     rec.shots = r.shots.map((s) => s.map((p) => p.slice()));
   }
   return rec;

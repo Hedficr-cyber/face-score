@@ -4,6 +4,18 @@
 import { measure } from './analysis.js';
 import { LINES } from './mesh-data.js';
 
+function finite(value, name) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${name} must be finite`);
+  return value;
+}
+function validDistribution(sorted) {
+  if (!Array.isArray(sorted) || !sorted.length) throw new Error('reference distribution must not be empty');
+  for (let i = 0; i < sorted.length; i++) {
+    finite(sorted[i], 'reference value');
+    if (i && sorted[i] < sorted[i - 1]) throw new Error('reference distribution must be sorted');
+  }
+}
+
 // 平均顔への近さは、顔の内側の点（目・眉・鼻・口）だけで測る。
 // 輪郭の点は撮影距離（遠近）で大きく動き、撮影条件の違う集団の平均顔と比べると意味を失う（2026-10-19 の検証：
 // SCUT の評価との相関が すべての点 0.27→0.01、内側の点 0.26→0.17）。
@@ -19,6 +31,7 @@ function centered(S) {
   let r = 0;
   for (const [x, y] of C) r += x * x + y * y;
   r = Math.sqrt(r / C.length);
+  if (!Number.isFinite(r) || r <= 1e-9) throw new Error('face shape is degenerate');
   return C.map(([x, y]) => [x / r, y / r]);
 }
 export function shape2d(P) {
@@ -54,6 +67,7 @@ const BROW_LOWER_R = [46, 53, 52, 65, 55], BROW_LOWER_L = [276, 283, 282, 295, 2
 export function mascFeatures(P) {
   const x = (i) => P[i][0], y = (i) => P[i][1];
   const iod = Math.hypot((P[263][0] + P[362][0] - P[33][0] - P[133][0]) / 2, (P[263][1] + P[362][1] - P[33][1] - P[133][1]) / 2);
+  if (!Number.isFinite(iod) || iod <= 1e-9) throw new Error('eye-center distance is degenerate');
   return {
     jaw: (x(397) - x(172)) / iod,
     lowerFace: (y(2) - y(152)) / iod,
@@ -79,6 +93,8 @@ export function rawIndices(P, meanShape) {
 
 // 姿勢・表情・解像度の補正：基準集団で「正面・無表情・高解像度」で撮った場合の値へそろえる
 export function covariates(c) {
+  for (const key of ['yaw', 'pitch', 'smile', 'facePx']) if (c[key] != null) finite(c[key], key);
+  if (c.facePx != null && c.facePx <= 0) throw new Error('facePx must be positive');
   return [Math.abs(c.yaw || 0), Math.abs(c.pitch || 0), c.smile || 0, 100 / Math.max(60, c.facePx || 600)];
 }
 export function adjust(value, coef, cov) {
@@ -88,6 +104,8 @@ export function adjust(value, coef, cov) {
 
 // 基準集団の並び（昇順）の中で何番目か → 0〜100（中央が50。同じ値は真ん中の順位）
 export function percentile(sorted, v) {
+  validDistribution(sorted);
+  finite(v, 'value');
   let lo = 0, hi = sorted.length;
   while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] < v) lo = m + 1; else hi = m; }
   let eq = lo;
@@ -95,12 +113,13 @@ export function percentile(sorted, v) {
   return (100 * (lo + (eq - lo) / 2)) / sorted.length;
 }
 
-// ---- 点数の誤差の範囲（既定は 90%）----
+// ---- 順位の参考範囲（既定は名目90%の係数）----
 // 2つの誤差を合わせる。
 // ① 基準の人数が少ないことによる順位の揺れ：「基準の人のうち何割より上か」を二項分布のウィルソン区間で見る
 // ② 測定の揺れ：撮影ごとの合成値のばらつき（標準誤差 se）を、基準の並びの上で順位の揺れに直す
 // ①と②は独立なので、正規分布の目盛り（プロビット）の上で二乗和にして合わせる（単純に足すと広すぎる）。
 // 著名人中心という基準の偏りの大きさは測れないので、この範囲には含まれない。
+// モデル誤差や、少数の撮影から推定した se 自体の不確かさも含まない。実利用で90%の被覆を保証する式ではない。
 function erf(x) {
   const sg = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
   return sg * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a));
@@ -121,6 +140,10 @@ export function normInv(p) {
   return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
 }
 export function percentileInterval(sorted, value, se = 0, z = 1.645) {
+  finite(se, 'standard error');
+  finite(z, 'interval multiplier');
+  if (se < 0 || z <= 0) throw new Error('standard error must be nonnegative and interval multiplier must be positive');
+  finite(z * z, 'squared interval multiplier');
   const n = sorted.length;
   const p = percentile(sorted, value) / 100;
   const wilson = (sign) => {
@@ -157,7 +180,7 @@ export function mascPreference(m, pref) {
 }
 
 // ---- 10段階：基準集団の中の順位（0〜100）を、10人に1人ずつの段階にする（1＝下位10%・10＝上位10%）----
-export function levelOf(pct) { return Math.min(10, Math.max(1, Math.ceil(pct / 10))); }
+export function levelOf(pct) { return Math.min(10, Math.max(1, Math.ceil(finite(pct, 'percentile') / 10))); }
 export const LEVEL_WORDS = ['', '下位', '下位', '平均よりやや下', '平均よりやや下', '平均くらい', '平均くらい', '平均より上', '平均より上', '上位', '上位'];
 
 // ---- 部位ごとのプラス・マイナス ----
@@ -195,6 +218,10 @@ export function japaneseProjection(P, meanShape, direction) {
 // ---- 採点：ref は research-reference.js の REFERENCE ----
 // cov：本人の撮影条件（顔の向き・笑顔・顔の幅の画素）。アプリの測定は正面・無表情・高解像度なので、ほぼ 0 の補正
 export function researchScore(P, ref, cov = {}) {
+  // 読み込み値や幾何計算の異常を、最下位の点数として表示しない。
+  if (!Array.isArray(P) || P.length !== 478 || P.some((p) => !Array.isArray(p) || p.length !== 3 || p.some((v) => typeof v !== 'number' || !Number.isFinite(v)))) {
+    throw new Error('face landmarks must contain 478 finite 3D points');
+  }
   const c = covariates(cov);
   const raw = rawIndices(P, ref.meanShape);
   const asym = adjust(raw.asymmetry, ref.coef.asymmetry, c);
@@ -225,6 +252,7 @@ export function researchScore(P, ref, cov = {}) {
   // 総合：各要素（日本人の基準で標準化）を、答え合わせの前半で決めた重みで足す
   const w = ref.weights;
   const composite = Object.keys(w).reduce((t, k) => t + (w[k] || 0) * (s[k] ?? 0), 0);
+  finite(composite, 'composite score');
   return {
     total: percentile(ref.compositeSorted, composite),
     composite,

@@ -139,6 +139,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
   let retried = false;
   let prev = null;
   let luma = 255, frameNo = 0;
+  let frameWidth = 0, frameHeight = 0, restartUntil = 0;
 
   // 不成立になった「今の1枚」は、生の点も含めてまとめて捨てる。
   // 撮り終えた1枚目の写真は、生え際合わせに使うため残す。
@@ -158,6 +159,21 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     const w = video.videoWidth, h = video.videoHeight;
     if (!w || !h) return;
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    if (frameWidth && (frameWidth !== w || frameHeight !== h)) {
+      // 生の点はそのときの映像サイズに対する正規化座標。向き・解像度が変わったら、
+      // 成立済みの写真や較正の向きも含めて取り直し、最後のサイズで混ぜて保存しない。
+      shots.length = 0; rawShots.length = 0; shotWidths.length = 0;
+      resetShot();
+      for (const key of Object.keys(views)) delete views[key];
+      turnBuf = []; turnKey = null; prev = null;
+      luma = 255; frameNo = 0; waitUntil = 0;
+      restartUntil = performance.now() + 800;
+      onShot(0);
+      onProgress(0, 0, opts.mode === 'turn-scan' ? 5 : C.shots);
+      onStatus({ code: 'frame-change', text: '映像の向き・サイズが変わりました。顔を枠に合わせ直してください' });
+    }
+    frameWidth = w; frameHeight = h;
+    if (performance.now() < restartUntil) return;
 
     let result;
     try {
@@ -303,7 +319,10 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
       onProgress(done, 0, 5);
       return;
     }
-    turnKey = want;
+    // 1つ目の横・縦はどちら向きでもよいが、6フレームの途中で反対を向いたら
+    // 取り直す。左右（上下）の平均を、最後の向きで撮れたものとして扱わない。
+    if (turnKey && turnKey !== cls) turnBuf = [];
+    turnKey = cls;
     turnBuf.push(lm.map((p) => [p.x, p.y, p.z]));
     onStatus({ code: 'hold', text: `${done + 1}/5　そのまま`, ...info });
     onProgress(done, turnBuf.length / 6, 5);

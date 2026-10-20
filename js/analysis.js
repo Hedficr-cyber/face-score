@@ -97,9 +97,15 @@ export function measure(P, hairline) {
   const asymmetry = Object.entries(REGION_WEIGHTS).reduce((s, [k, w]) => s + w * (asymRegions[k] || 0), 0);
   const heightDiff = (leftIdx, rightIdx) => (mean(leftIdx.map(y)) - mean(rightIdx.map(y))) / width;
 
-  // 実寸（黒目の横幅から）
-  const iris = mean([dist2(P[469], P[471]), dist2(P[470], P[472]), dist2(P[474], P[476]), dist2(P[475], P[477])]);
-  const mmPerUnit = IRIS_MM / iris;
+  // 実寸（黒目の横幅から）。旧468点の記録や黒目の欠損では、形・比率だけを
+  // 計測する。目尻などから黒目を補って、実寸や瞳孔間距離を作らない。
+  const hasIris = Array.from({ length: 10 }, (_, i) => P[468 + i])
+    .every((p) => p && [p[0], p[1], p[2]].every(Number.isFinite));
+  const diameters = hasIris ? [dist2(P[469], P[471]), dist2(P[470], P[472]), dist2(P[474], P[476]), dist2(P[475], P[477])] : [];
+  const iris = diameters.length && diameters.every((d) => Number.isFinite(d) && d > 0) ? mean(diameters) : null;
+  const pupilDistance = hasIris ? dist2(P[468], P[473]) : null;
+  const scale = iris != null ? IRIS_MM / iris : null;
+  const mmPerUnit = Number.isFinite(scale) && scale > 0 && Number.isFinite(pupilDistance) && pupilDistance > 0 ? scale : null;
 
   return {
     hairline: { source: hairSet ? 'manual' : 'estimated', y: hairY },
@@ -114,10 +120,10 @@ export function measure(P, hairline) {
     browTilt: heightDiff([300, 293, 334, 296, 336], [70, 63, 105, 66, 107]),
     eyeTilt: heightDiff([386, 374], [159, 145]),
     mouthTilt: (y(291) - y(61)) / width,
-    mm: {
+    mm: mmPerUnit == null ? null : {
       width: width * mmPerUnit,
       temple: (x(356) - x(127)) * mmPerUnit,
-      pd: dist2(P[468], P[473]) * mmPerUnit,
+      pd: pupilDistance * mmPerUnit,
       eye: eyeW * mmPerUnit,
       inner: inner * mmPerUnit,
     },

@@ -127,7 +127,8 @@ export function rankGlasses(m, shape, features = null) {
 // メガネのサイズの目安（黒目の大きさから推定した瞳孔間距離をもとにする）
 // 顔の幅からフレーム幅を出すのは、輪郭の点が実際の顔幅より内側に出るため使わない（2026-10-18 実測で確認）
 export function frameSize(m) {
-  const pd = m.mm.pd;
+  const pd = m.mm?.pd;
+  if (!Number.isFinite(pd) || pd <= 0) return null;
   const ratio = m.inner / m.eyeW;
   const lpb = [Math.round(pd + 2), Math.round(pd + 8)];
   return {

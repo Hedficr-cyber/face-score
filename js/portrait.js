@@ -22,10 +22,13 @@ export function portraitSVG(P, m, mode) {
   let face = '';
   for (const k of FACE) face += LINES[k].map(([a, b]) => seg(a, b)).join('');
   const soft = NOSE.map(([a, b]) => seg(a, b)).join('');
-  // 黒目は4点の平均半径の円で描く
+  // 黒目は4点の平均半径の円で描く。旧468点や欠損した黒目は描き足さない。
   const irises = [[468, 469, 470, 471, 472], [473, 474, 475, 476, 477]].map(([c, ...ring]) => {
+    if (![c, ...ring].every((i) => P[i] && Number.isFinite(P[i][0]) && Number.isFinite(P[i][1]))) return '';
     const r = mean(ring.map((i) => Math.hypot(P[i][0] - P[c][0], P[i][1] - P[c][1]))) * s;
-    return `<circle class="face soft" cx="${X(P[c][0]).toFixed(2)}" cy="${Y(P[c][1]).toFixed(2)}" r="${r.toFixed(2)}"/>`;
+    const cx = X(P[c][0]), cy = Y(P[c][1]);
+    if (![r, cx, cy].every(Number.isFinite) || r <= 0) return '';
+    return `<circle class="face soft" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${r.toFixed(2)}"/>`;
   }).join('');
 
   let guides = '';
