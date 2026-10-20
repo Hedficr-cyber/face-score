@@ -15,6 +15,7 @@ import { predictAttractiveness, validateJapaneseMaleModel } from './relative-sco
 import { researchScore, percentileInterval, levelOf, LEVEL_WORDS } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
+import { eyewearSVG, EYEWEAR_SHOWCASE } from './eyewear-visuals.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -143,11 +144,11 @@ function gauge(total, label = 'TOTAL / 100', range = null) {
   const band = range ? `<circle class="range" cx="60" cy="60" r="${r}" stroke-dasharray="${(arc * (clamp(range[1]) - clamp(range[0])) / 100).toFixed(2)} ${c}" stroke-dashoffset="${(-arc * clamp(range[0]) / 100).toFixed(2)}"/>` : '';
   const [int, dec] = one(total).split('.');
   return `<div class="gauge">
-    <svg viewBox="0 0 120 120" aria-hidden="true">
+    <svg viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(135 60 60)">
       <circle class="track" cx="60" cy="60" r="${r}" stroke-dasharray="${arc} ${c}"/>
       ${band}
       <circle class="bar" cx="60" cy="60" r="${r}" stroke-dasharray="${val} ${c}" ${total >= 80 ? 'style="stroke:var(--accent)"' : ''}/>
-    </svg>
+    </g></svg>
     <div class="gauge-num"><div class="n">${int}<small>.${dec}</small></div><div class="of">${esc(label)}</div></div>
   </div>`;
 }
@@ -163,7 +164,7 @@ function levelBlock(R) {
   return `<div class="level" role="img" aria-label="10段階で${lv}（参考範囲では${lo}〜${hi}）">
       <div class="level-head"><span class="level-n">${lv}</span><span class="level-of">/ 10</span><span class="level-word">${LEVEL_WORDS[lv]}</span></div>
       <div class="level-bar">${cells}</div>
-      <div class="level-note">${lo === hi ? '参考範囲でも同じ段階' : `参考範囲では ${lo}〜${hi}`}・10＝基準 ${RESEARCH_REF.n} 人の上位10%、1＝下位10%</div>
+      <div class="level-note">参考範囲：${lo === hi ? `${lo}段階` : `${lo}〜${hi}段階`}</div>
     </div>`;
 }
 
@@ -192,38 +193,26 @@ function renderWelcome() {
 function renderResult(rec, { latest }) {
   if (!rec) { renderWelcome(); return; }
   const r = evaluate(rec);
-  const m = r.measures;
-  const shape = r.shape;
-  const second = shape.ranked[1];
   const attraction = r.attractiveness;
   const primaryResearch = attractivenessModel ? null : r.research;
-  const chips = [
-    `<span class="chip strong"><b>${esc(shape.main.name)}</b>${shape.main.p < 0.6 ? '寄り' : ''}</span>`,
-    second && second.p >= 0.15 ? `<span class="chip">${esc(second.name)} ${Math.round(second.p * 100)}%</span>` : '',
-    r.spread != null ? `<span class="chip">比率のぶれ ±${one(r.spread)}</span>` : '',
-    `<span class="chip">生え際 ${m.thirds.hairlineSet ? '指定' : '推定'}</span>`,
-    r.calibrated == null ? '<span class="chip">比率の遠近補正なし（v0.1 の記録）</span>'
-      : r.calibrated ? `<span class="chip">比率の遠近補正 較正済み${calibCount(rec) === 1 ? '（1回）' : ''}</span>`
-        : rec.imported ? '<span class="chip">比率の遠近補正 未較正（元の端末）</span>'
-          : '<span class="chip">比率の遠近補正 未較正</span>',
-    rec.imported ? '<span class="chip">読み込んだ記録</span>' : '',
-  ].join('');
 
   view.innerHTML = `
     ${latest ? '' : '<a class="chip" href="#history" style="display:inline-block;margin:2px 0 8px">← 記録へ戻る</a>'}
     <section class="hero fade-in">
       <div class="hero-date">${dateText(rec.at)}</div>
-      <div class="small">${metricLabel()}</div>
+      <div class="small">${attractivenessModel ? '日本人男性の魅力相対点' : '研究の相対スコア'}</div>
       ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : primaryResearch ? gauge(primaryResearch.total, 'RESEARCH / 100', primaryResearch.interval) : '<h1>未算出</h1>'}
       ${primaryResearch?.interval ? `<div class="range-text">参考範囲 <b>${Math.round(primaryResearch.interval[0])}〜${Math.round(primaryResearch.interval[1])}</b> 点<span>（推定）</span></div>${levelBlock(primaryResearch)}` : ''}
-      <div class="chips">${chips}${primaryResearch?.spread != null ? `<span class="chip">相対点のぶれ ±${one(r.research.spread)}</span>` : ''}</div>
-      ${attraction ? `<p class="small">基準：${esc(attraction.cohort)}。日本人男性の評価データを学んだ、顔の形状からの推定です。50点が校正用${attraction.referenceImages}画像の真ん中。一般の日本人男性全体での順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。${attraction.outsideReference ? ' 今回は基準分布の範囲外です。' : ''}</p>` : r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : attractivenessModel ? '<p class="small">この古い記録には元の点がないため、魅力の相対点には換算していません。比率の点数は参考として確認できます。</p>' : primaryResearch ? `<p class="small">日本人の評価者が好む「部位の特徴」と「顔の形の向き」、研究で魅力との関係が確かめられた「平均顔への近さ」「男らしさのバランス」を合わせ、日本人男性 ${RESEARCH_REF.n} 人（公開写真）の中の順位にした点数です。50点が真ん中。人の評価との一致は ρ＝${RESEARCH_REF.validity.rhoB.toFixed(2)}（同じアジア系男性の評価データで開発中に繰り返し確認した値。日本人女性の評価そのものではなく、新しい人物での精度は未検証です）。参考範囲は、基準の人数と撮影ごとのばらつきから推定しています。3回の撮影だけで実際の誤差を十分に見積もれるとは限らず、90%の確率で真の順位を含む保証はありません。モデル自体の誤差や著名人中心の偏りも含みません。</p>` : '<p class="small">この古い記録には元の点がないため、相対点は出していません。比率の点数は参考として確認できます。</p>'}
+      ${primaryResearch ? `<p class="score-context">基準 ${RESEARCH_REF.n} 人内の目安</p>` : ''}
+      ${attraction?.outsideReference ? '<p class="small" role="status">今回の値は、取り込んだ基準分布の範囲外です。</p>' : ''}
+      ${r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : !attraction && !primaryResearch ? `<p class="small" role="${rec.raw ? 'alert' : 'status'}">${rec.raw ? 'この記録の主点は計算できませんでした。' : 'この古い記録には元の点がないため、主点は未算出です。'}</p>` : ''}
     </section>
     <div class="seg" role="tablist" aria-label="結果の切り替え">
       ${[['score', 'スコア'], ['hair', '髪型'], ['eyewear', 'メガネ']].map(([k, t]) =>
         `<button type="button" role="tab" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-tab="${k}">${t}</button>`).join('')}
     </div>
     <div id="tabBody" class="fade-in">${tabBody(rec, r)}</div>
+    ${resultNotes(rec, r)}
     ${latest ? '' : `<div class="actions"><button class="btn danger block" type="button" data-act="delete" data-id="${esc(rec.id)}">この記録を削除</button></div>`}
   `;
 }
@@ -263,14 +252,14 @@ function scoreTab(rec, r) {
   }).join('');
 
   return `
+    ${attractivenessModel ? '' : researchCard(r)}
     ${attractivenessModel ? '' : scaleCard(r)}
     ${attractivenessModel ? '' : partsCard(r)}
-    ${attractivenessModel ? '' : researchCard(r)}
-    <div class="label">Portrait</div>
+    <h2 class="section-title">顔の形 <span>${esc(r.shape.main.name)}</span></h2>
     <div class="card portrait">
       ${portraitSVG(r.points, m, ui.portrait)}
       <div class="portrait-tools"><div class="seg mini">${modes.map(([k, t]) =>
-        `<button type="button" class="${ui.portrait === k ? 'on' : ''}" data-portrait="${k}">${t}</button>`).join('')}</div></div>
+        `<button type="button" aria-pressed="${ui.portrait === k}" class="${ui.portrait === k ? 'on' : ''}" data-portrait="${k}">${t}</button>`).join('')}</div></div>
     </div>
     <details class="ref-details">
       <summary>参考：比率スコア <b>${one(r.score.total)}</b>（主点とは別の古い指標・調整中）</summary>
@@ -281,7 +270,7 @@ function scoreTab(rec, r) {
 }
 
 // 10段階の目安：日本人の評価者の評定から作られた CG の顔（Nakamura & Watanabe 2020、CC0）を、このアプリで測った段階
-function scaleCard(r) {
+function scaleNotes(r) {
   const R = r.research, A = RESEARCH_REF.anchors;
   if (!R || !A) return '';
   const lv = levelOf(R.total);
@@ -304,7 +293,7 @@ const FEATURE_WORDS = {
   jaw: ['あごの幅', '広い', '狭い'], lowerFace: ['鼻の下〜あごの長さ', '長い', '短い'], chinH: ['口〜あごの長さ', '長い', '短い'],
   nose: ['小鼻の幅', '広い', '狭い'], lips: ['唇の厚さ', '厚い', '薄い'],
 };
-function partsCard(r) {
+function partsNotes(r) {
   const D = r.research?.partsDetail;
   if (!D) return '';
   const mark = (v) => (v >= 1 ? ['＋＋', 'plus'] : v >= 0.4 ? ['＋', 'plus'] : v <= -1 ? ['−−', 'minus'] : v <= -0.4 ? ['−', 'minus'] : ['±', '']);
@@ -339,7 +328,7 @@ function partsCard(r) {
 }
 
 // 研究の知見による相対点の内訳（平均顔への近さ・男らしさのバランス・日本人の好みの向き・参考の左右対称）
-function researchCard(r) {
+function researchNotes(r) {
   const R = r.research;
   if (!R) return '';
   const w = RESEARCH_REF.weights, p = R.parts, V = RESEARCH_REF.validity;
@@ -348,7 +337,7 @@ function researchCard(r) {
   const opt = RESEARCH_REF.mascPreference.optimum;
   const rangeOf = (key) => percentileInterval(RESEARCH_REF.sortedParts[key], p[key].z).map(Math.round).join('〜');
   const row = (name, weight, pct, notes, tag = '', key = null) => `<div class="item open">
-      <div class="item-head" role="group"><span class="item-name">${name}${weight != null ? `<span class="item-weight">${Math.round(weight * 100)}%</span>` : ''}${tag}${key ? `<span class="item-range">範囲 ${rangeOf(key)}</span>` : ''}</span>
+      <div class="item-head" role="group"><span class="item-name">${name}${tag}<span class="research-note-meta">${weight != null ? `<span>総合点への重み ${Math.round(weight * 100)}%</span>` : '<span>総合点には含めない</span>'}${key ? `<span>参考範囲 ${rangeOf(key)} 点</span>` : ''}</span></span>
         <span class="item-score ${level(pct)}">${Math.round(pct)}</span>${meter(pct)}</div>
       <div class="item-body"><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div></div>`;
   return `
@@ -374,7 +363,93 @@ function researchCard(r) {
     <p class="small" style="margin-top:10px">総合点＝部位の特徴 ${Math.round(w.featureJapanese * 100)}%・日本人の好みの向き（形）${Math.round(w.japanese * 100)}%・平均顔への近さ ${Math.round(w.averageness * 100)}%・男らしさのバランス ${Math.round(w.masculinity * 100)}% を合わせ、日本人男性 ${RESEARCH_REF.n} 人の中の順位にしたもの。重みはアジア系男性の評価データ（研究用）の前半で、撮影条件の影響を除いて決め、後半で繰り返し開発中の確認を行いました（ρ＝${V.rhoB.toFixed(2)}、95% 区間 ${V.ci95B.map((v) => v.toFixed(2)).join('〜')}。部位の特徴を入れる前は ${V.withoutFeatureRhoB.toFixed(2)}、前の版は ${V.previousVersionRhoB.toFixed(2)}）。基準の日本人男性は公開写真のある著名人・スポーツ選手が中心です。</p>`;
 }
 
-function rankList(list, all) {
+// 数値の結果は短く見せ、説明は全タブ共通の末尾へまとめる。
+function researchCard(r) {
+  const R = r.research;
+  if (!R) return '';
+  const names = { featureJapanese: '顔のパーツの特徴', japanese: '顔全体の形', averageness: '平均顔への近さ', masculinity: '男らしさのバランス' };
+  return `<section class="research-overview" aria-label="点数の内訳">
+    <h2 class="section-title">点数の内訳 <span>基準 ${RESEARCH_REF.n} 人内</span></h2>
+    <div class="component-list">${Object.entries(names).map(([key, name]) => {
+      const p = R.parts[key];
+      if (!p) return '';
+      const interval = percentileInterval(RESEARCH_REF.sortedParts[key], p.z).map(Math.round);
+      return `<article class="component-card">
+        <div class="component-heading"><h3>${name}</h3><b>${Math.round(p.pct)}<small>点</small></b></div>
+        ${meter(p.pct)}
+        <div class="component-meta"><span>重み ${Math.round(RESEARCH_REF.weights[key] * 100)}%</span><span>参考 ${interval[0]}〜${interval[1]} 点</span></div>
+      </article>`;
+    }).join('')}</div>
+  </section>`;
+}
+
+function scaleCard(r) {
+  if (!r.research || !RESEARCH_REF.anchors) return '';
+  const image = { '-3': 'cg-minus3', '0': 'cg-0', '3': 'cg-plus3' };
+  const caption = { '-3': '低い設定', '0': '中間設定', '3': '高い設定' };
+  return `<section aria-label="10段階の目安">
+    <h2 class="section-title">10段階の位置 <span>あなたは ${levelOf(r.research.total)} / 10</span></h2>
+    <div class="card visual-scale"><div class="anchor-row">${RESEARCH_REF.anchors.map(a => `<figure>
+      <img src="img/${image[a.sd]}.jpg" width="240" height="300" alt="${caption[a.sd]}のCG見本。アプリでの段階${a.level}" loading="lazy">
+      <figcaption><b>${a.level}<small> / 10</small></b><span>${caption[a.sd]}</span></figcaption>
+    </figure>`).join('')}</div><p class="visual-caption">同じCGの設定違い。本人の写真ではありません。</p></div>
+  </section>`;
+}
+
+function partIcon(key) {
+  const paths = {
+    eyes: '<path d="M5 20Q20 4 35 20Q20 36 5 20Z"/><circle cx="20" cy="20" r="6"/>',
+    brows: '<path d="M6 10Q19 3 33 10M6 26Q20 14 34 26"/><path d="M20 11v8M17 15l3 4 3-4"/>',
+    jaw: '<path d="M7 5v12q1 13 13 19 12-6 13-19V5M10 20l10 11 10-11"/>',
+    nose: '<path d="M17 5l-6 23q9 9 18 0L23 5M12 28q4-5 8 0 4-5 8 0"/>',
+    lips: '<path d="M4 20q10-11 16-4 6-7 16 4-16 18-32 0ZM4 20h32"/>',
+  };
+  return `<svg viewBox="0 0 40 40" aria-hidden="true">${paths[key] || ''}</svg>`;
+}
+
+function partsCard(r) {
+  const parts = r.research?.partsDetail;
+  if (!parts) return '';
+  return `<section aria-label="部位の特徴">
+    <h2 class="section-title">部位の特徴 <span>研究の基準に対する傾向</span></h2>
+    <div class="visual-parts">${parts.slice().sort((a,b) => b.influence-a.influence).map(p => {
+      const effect = p.influence < .05 ? 'small' : p.score >= .4 ? 'plus' : p.score <= -.4 ? 'minus' : 'neutral';
+      const label = { small: '影響小', plus: '＋ プラス寄り', minus: '− マイナス寄り', neutral: '± 標準付近' }[effect];
+      const detail = p.items.map(it => {
+        const word = Math.abs(it.z) < .3 ? '標準付近' : it.z > 0 ? FEATURE_WORDS[it.key][1] : FEATURE_WORDS[it.key][2];
+        return `<span>${esc(FEATURE_WORDS[it.key][0])}：${esc(word)}</span>`;
+      }).join('');
+      const position = Math.max(4, Math.min(96, 50 + 22 * p.score));
+      return `<article class="visual-part ${effect}">
+        <div class="part-symbol">${partIcon(p.key)}</div>
+        <div class="part-copy"><h3>${esc(p.name)}</h3></div>
+        <b class="part-verdict">${label}</b>
+        <div class="part-description">${detail}</div>
+        <div class="part-axis" role="img" aria-label="${esc(p.name)}：${label}"><span class="axis-mid"></span><i style="left:${position.toFixed(1)}%"></i></div>
+      </article>`;
+    }).join('')}</div>
+    <div class="axis-legend"><span>− 反対方向</span><span>研究で好まれる方向 ＋</span></div>
+  </section>`;
+}
+
+function resultNotes(rec, r) {
+  const a = r.attractiveness;
+  const camera = r.calibrated == null ? '遠近補正なし（古い記録）' : r.calibrated ? `較正済み${calibCount(rec) ? `・${calibCount(rec)}回` : ''}` : rec.imported ? '未較正（元の端末）' : '未較正';
+  const explanation = a
+    ? `基準：${esc(a.cohort)}。日本人男性の評価データを学んだ形状からの推定です。50点が校正用${a.referenceImages}画像の真ん中。一般の日本人男性全体の順位は未検証です。学習写真と同じく遠近補正前の形状を使うため、撮影距離の影響は残ります。`
+    : attractivenessModel ? '取り込んだ日本人男性の評価モデルを主点に使います。計算できない記録を別の主点へ置き換えることはありません。'
+    : `日本人の評価者が好む部位の特徴と顔の形の方向、平均顔への近さ、男らしさのバランスを合わせ、基準${RESEARCH_REF.n}人内の順位にした点数です。50点が真ん中です。一般の日本人男性全体の順位ではありません。`;
+  return `<details class="result-notes" id="resultNotes"><summary>採点の根拠・測定の詳細</summary>
+    <div class="notes-content"><h2>この点数について</h2><p class="small">${explanation}</p>
+    ${!attractivenessModel ? `<p class="small">参考範囲は基準の人数と撮影ごとのばらつきから推定したものです。3回からの推定には不確かさがあり、90%の確率で真の順位を含む保証はありません。モデル自体の誤差、撮影条件のずれ、著名人中心の基準の偏りは含みません。</p>
+    <p class="small">10段階は基準集団の10分位です。10＝基準${RESEARCH_REF.n}人の上位10%、1＝下位10%。段階の薄い部分は参考範囲です。</p>` : ''}
+    <h2>測定の状態</h2><dl class="measurement-facts"><div><dt>遠近補正</dt><dd>${camera}</dd></div><div><dt>生え際</dt><dd>${r.measures.thirds.hairlineSet ? '指定' : '推定'}</dd></div>${r.spread != null ? `<div><dt>参考比率のぶれ</dt><dd>±${one(r.spread)}</dd></div>` : ''}${!attractivenessModel && r.research?.spread != null ? `<div><dt>相対点のぶれ</dt><dd>±${one(r.research.spread)}</dd></div>` : ''}${rec.imported ? '<div><dt>記録の出所</dt><dd>この端末へ読み込んだ記録</dd></div>' : ''}</dl>
+    ${!attractivenessModel ? researchNotes(r) + scaleNotes(r) + partsNotes(r) : ''}
+    ${!attractivenessModel ? `<h2>基準集団について</h2><p class="small">現在は、公開写真と出典を確認した日本国籍の男性${RESEARCH_REF.n}人が基準です。著名人・スポーツ選手が中心で、一般男性の無作為標本ではありません。撮影時年齢に未成年・不明が含まれ、成人だけの基準ではありません。追加候補は国籍・性別・成人の出典、利用条件、人物の重複、撮影品質を確認してから組み込みます。本人の繰り返し撮影を別人として基準人数に足すことはありません。</p>` : ''}
+    </div></details>`;
+}
+
+function rankList(list, all, frameExamples = false) {
   const shown = all ? list : list.slice(0, 5);
   return `<div class="rank">${shown.map((h, i) => `
     <article class="rank-card${i === 0 ? ' best' : ''}">
@@ -383,9 +458,11 @@ function rankList(list, all) {
         <span class="rank-name">${esc(h.name)}${i === 0 ? '<span class="rank-tag">BEST</span>' : ''}</span>
         <span class="rank-score">${Math.round(h.score)}</span>
       </div>
+      ${frameExamples ? `<div class="frame-example">${eyewearSVG(h.id, h.kind)}</div>` : ''}
       ${meter(h.score)}
-      <ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
+      <details class="rank-detail"><summary>選び方・理由</summary><ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
       <div class="rank-tip"><b>伝え方・選び方</b>　${esc(h.tip)}</div>
+      </details>
     </article>`).join('')}</div>`;
 }
 
@@ -401,11 +478,13 @@ function eyewearTab(r) {
   const list = r.glasses.filter((g) => g.kind === (ui.eyewear === 'sun' ? 'sunglasses' : 'glasses'));
   const s = r.size;
   return `
-    <div class="label">Eyewear</div>
     <div class="seg mini">
-      <button type="button" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
-      <button type="button" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
+      <button type="button" aria-pressed="${ui.eyewear === 'glasses'}" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
+      <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
+    <h2 class="section-title">似合う${ui.eyewear === 'sun' ? 'サングラス' : 'メガネ'}</h2>
+    ${rankList(list, true, true)}
+    <h2 class="section-title">サイズの目安</h2>
     <div class="card">
       ${s ? `<div class="size-grid">
         <div><b>${s.pd}</b><span>瞳孔間 mm</span></div>
@@ -416,8 +495,10 @@ function eyewearTab(r) {
       <p class="small" style="margin:6px 0 0">「定番」は美容室・メガネ店で定番の考え方による目安、「測定」はあなたの測定値（縦横比・あご幅・目元・眉と目の距離）、「研究」は研究の結果にもとづく理由です。顔の形の判定は平均顔のデータにもとづきます。</p>
       <p class="small" style="margin:6px 0 0">研究の知見：メガネをかけると知的に見える一方、魅力はやや下がって見えやすい。ただしフチなしでは信頼感が上がり、魅力は下がらなかった。メガネは目元に視線を集める（Leder・Forster・Gerger 2011、ヨーロッパでの実験）。</p>
     </div>
-    <div style="height:10px"></div>
-    ${rankList(list, true)}`;
+    <details class="result-notes example-gallery"><summary>フレームの見本写真を見る</summary>
+      <img src="${EYEWEAR_SHOWCASE}" width="1536" height="1024" alt="6種類のメガネの生成見本。本人の試着画像ではありません" loading="lazy">
+      <p class="small">形をイメージするための生成画像です。実際の商品や本人の試着を表すものではありません。</p>
+    </details>`;
 }
 
 // ---------- 記録 ----------
@@ -650,7 +731,7 @@ sheet.addEventListener('click', (e) => {
   if (e.target.id === 'importAttractiveness') $('#attractivenessFile').click();
   if (e.target.id === 'removeAttractiveness') {
     if (!store.setSetting('attractivenessModel', null)) { toast('表示の設定を保存できませんでした'); return; }
-    attractivenessModel = null; memo.clear(); closeSheet(); route(); toast('採点基準を解除しました。主点は未算出です');
+    attractivenessModel = null; memo.clear(); closeSheet(); route(); toast('採点基準を解除しました。研究の相対スコアに戻しました');
   }
 });
 sheet.addEventListener('change', async (e) => {
