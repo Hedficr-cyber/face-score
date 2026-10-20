@@ -20,7 +20,7 @@ function leanings(m) {
   };
 }
 
-// 部位の測定（research-score の features：日本人男性 98 人の基準で標準化。1＝平均から標準偏差 1 つ分）。
+// 部位の測定（research-score の features：日本人男性の基準集団で標準化。1＝平均から標準偏差 1 つ分）。
 // 日本人の評価者が好む向き（Nakamura & Watanabe 2020。撮影条件をそろえた SCUT でも同じ向き）：目は大きい方・眉と目は近い方。
 // 強みは見せ、弱みは目立たせない髪型・メガネに点を足す（足し方はスタイリングの定番の考え方。向きの根拠は上の研究）
 function partLeanings(f) {
