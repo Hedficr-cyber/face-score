@@ -21,11 +21,17 @@ function selected(list, state) {
   const color = LENS_COLORS.find(c => c.id === state.color) || LENS_COLORS.find(c => c.id === defaultColor(frame || {}));
   return { items, frame, color };
 }
+// 実商品：最初の4件を見せ、残りは開いて見る（形ごとに10件以上あるため）
+const PRODUCT_FIRST = 4;
+const productCard = p => `<article class="eyewear-product"><div class="product-brand">${esc(p.brand)}<span>${esc(p.sku || '')}</span></div><h4>${esc(p.name)}</h4>${p.spec ? `<p class="product-spec">${esc(p.spec)}</p>` : ''}<p>${esc(p.note)}</p><a class="btn ghost block" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">公式の商品写真を見る<span aria-hidden="true"> ↗</span><span class="sr-only">（新しいタブ）</span></a></article>`;
 function productHTML(frame) {
   const matches = PRODUCTS.filter(p => p.frames.includes(frame.id));
-  return `<h3 class="gallery-products-title">実際の商品を見る</h3><p class="small gallery-product-note">実物の写真は、各ブランドの公式ページで見られます。</p>
-    <div class="eyewear-products">${matches.map(p => `<article class="eyewear-product"><div class="product-brand">${esc(p.brand)}<span>${esc(p.sku || '')}</span></div><h4>${esc(p.name)}</h4>${p.spec ? `<p class="product-spec">${esc(p.spec)}</p>` : ''}<p>${esc(p.note)}</p><a class="btn ghost block" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">公式の商品写真を見る<span aria-hidden="true"> ↗</span><span class="sr-only">（新しいタブ）</span></a></article>`).join('') || '<p class="small">この形の商品例は準備中です。ほかの形も選んでみてください。</p>'}</div>
-    <p class="small gallery-product-foot">商品情報の確認：${esc(PRODUCTS_CHECKED)}。色見本と同一の商品ではありません。選べるレンズ・度数・価格・在庫は公式ページで確認できます。</p>`;
+  const brands = [...new Set(matches.map(p => p.brand))].join('・');
+  const first = matches.slice(0, PRODUCT_FIRST), rest = matches.slice(PRODUCT_FIRST);
+  return `<h3 class="gallery-products-title">実際の商品を見る<span class="gallery-products-count">${matches.length}件</span></h3><p class="small gallery-product-note">${matches.length ? `${esc(brands)}の公式ページで確かめた、この形の商品です。` : ''}実物の写真は、各ブランドの公式ページで見られます。</p>
+    <div class="eyewear-products">${first.map(productCard).join('') || '<p class="small">この形の商品例は準備中です。ほかの形も選んでみてください。</p>'}</div>
+    ${rest.length ? `<details class="product-more"><summary>ほかの商品をあと${rest.length}件見る</summary><div class="eyewear-products">${rest.map(productCard).join('')}</div></details>` : ''}
+    <p class="small gallery-product-foot">商品情報の確認：${esc(PRODUCTS_CHECKED)}。色見本と同一の商品ではありません。選べるレンズ・度数・価格・在庫は公式ページで確認できます（売り切れ・終売になっていることもあります）。</p>`;
 }
 export function renderEyewearGallery(list, state = {}) {
   const { items, frame, color } = selected(list, state);

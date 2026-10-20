@@ -1,38 +1,1550 @@
-// ブランド公式の実商品への案内。画像を転載せず、本人の写真や測定値をURLへ含めない。
-// 出典：_work/eyewear-products-research_2026-10-20.json（Codex、公式の個別商品ページ）と、
-// _work/eyewear-products-research-claude_2026-10-20.json（Claude Code、サーモントとスクエア型サングラスを追加確認）。
-// 価格・在庫は変わるので載せない。Zoff・OWNDAYS はリンク設置に事前連絡が要る規約のため載せない。
-// frames：この商品を例として出す形（catalog.js の id）。spec：公式ページの表記（形・色・サイズ）
-export const PRODUCTS_CHECKED = '2026-10-20';
+// 自動生成（_work/build-eyewear-products.mjs）。手で直さず、_work の記録（curated・JINS・Ray-Ban の JSON）を直して作り直す。
+// ブランド公式の実商品への案内。画像を転載せず、本人の写真や測定値をURLへ含めない。価格・在庫は変わるので載せない。
+// Zoff・OWNDAYS はリンク設置に事前連絡が要る規約のため載せない。frames：この商品を例として出す形（catalog.js の id）。
+// spec：公式ページの表記（形・色・サイズ）。形は各ブランドの公式の分類だけを使う。
+export const PRODUCTS_CHECKED = '2026-10-20〜21';
 export const PRODUCTS = [
-  { brand: 'JINS', sku: 'UCF-22A-165', name: 'STANDARD Acetate', frames: ['wellington'], url: 'https://www.jins.com/jp/item/UCF-22A-165.html',
-    spec: 'ウェリントン・ブラック・47□24-145', note: '黒いセルの定番ウェリントン。対応レンズに薄い色のレンズ（ライトブルー・ライトラベンダーなど）がある。' },
-  { brand: 'JINS', sku: 'UCF-22A-181', name: 'STANDARD Acetate', frames: ['boston'], url: 'https://www.jins.com/jp/item/UCF-22A-181_94.html',
-    spec: 'ボストン・ブラック・47.0□21.5-144.0', note: '黒いセルのボストン。対応レンズに薄い色のレンズがある。' },
-  { brand: 'JINS', sku: 'UCF-22A-184', name: 'STANDARD Acetate', frames: ['boston'], url: 'https://www.jins.com/jp/item/UCF-22A-184.html',
-    spec: 'クラウンパント・ブラック・48□23-144', note: 'ボストンの上辺を角ばらせたクラウンパント（公式の仕様は多角形）。' },
-  { brand: 'JINS', sku: 'UMF-22A-202', name: 'Authentic Rim Metal', frames: ['round'], url: 'https://www.jins.com/jp/item/UMF-22A-202.html',
-    spec: 'ラウンド・ブラウン', note: '細いメタルの丸メガネ。対応レンズに薄い色のレンズがある。' },
-  { brand: 'JINS', sku: 'MMF-22A-262', name: 'Rim Metal', frames: ['square'], url: 'https://www.jins.com/jp/item/MMF-22A-262_96.html',
-    spec: 'スクエア・シルバー・54□17-143', note: '細いメタルの横長スクエア。対応レンズに薄い色のレンズがある。' },
-  { brand: 'JINS', sku: 'MMF-22A-260', name: 'Rim Metal', frames: ['oval'], url: 'https://www.jins.com/jp/item/MMF-22A-260_84.html',
-    spec: 'オーバル・ブラウン・52□18-143', note: '細いメタルのオーバル。対応レンズに薄い色のレンズがある。' },
-  { brand: 'JINS', sku: 'UTF-25A-223', name: 'NEW CLASSIC No.03', frames: ['browline'], url: 'https://www.jins.com/jp/item/UTF-25A-223_294.html',
-    spec: 'サーモント・ブラック/グレー・49□21-150', note: '前はチタン、つるはアセテート。眉の位置に太いライン。対応レンズにライトカラーがある。' },
-  { brand: 'JINS', sku: 'MTP-26S-149', name: '26SS STANDARD Rimless', frames: ['rimless'], url: 'https://www.jins.com/jp/item/MTP-26S-149_96.html',
-    spec: 'リムレス・シルバー・56□18-144', note: '対応レンズにライトアッシュ・ライトブルー・ライトラベンダーなどの薄い色がある（度数などの条件あり）。' },
-  { brand: 'Ray-Ban', sku: 'RB3025', name: 'AVIATOR CLASSIC', frames: ['teardrop'], url: 'https://www.ray-ban.com/japan/sunglasses/RB3025aviator%20classic-%E3%82%A2%E3%83%AA%E3%82%B9%E3%82%BF%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%89/805289602057',
-    spec: 'アビエーター・アリスタゴールド・G-15グリーン・58-14', note: 'パイロット型の元祖。金のメタルに緑のG-15レンズ。' },
-  { brand: 'JINS', sku: 'UTF-25A-242', name: 'JINS TODAY 2025-26FW', frames: ['teardrop'], url: 'https://www.jins.com/jp/item/UTF-25A-242_396.html',
-    spec: 'ティアドロップ・シルバー', note: 'メガネとして売られているティアドロップ（サングラスではない）。対応レンズに薄い色のレンズがある。' },
-  { brand: 'Ray-Ban', sku: 'RB2140F', name: 'ORIGINAL WAYFARER CLASSIC', frames: ['wellington-sun'], url: 'https://www.ray-ban.com/japan/sunglasses/0RB2140F-ORIGINAL%20WAYFARER%20CLASSIC-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8053672054682',
-    spec: 'ウェイファーラー・ブラック・G-15グリーン・52-22', note: 'ウェリントン型サングラスの定番。公式にレンズのカスタマイズの入口がある。' },
-  { brand: 'Ray-Ban', sku: 'RB3447', name: 'ROUND METAL', frames: ['round-sun'], url: 'https://www.ray-ban.com/japan/sunglasses/RB3447round%20metal-%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%89/8056597858236',
-    spec: 'ラウンド・ゴールド・グレーのグラデーション・53-21', note: '丸いメタルのサングラス。公式にレンズのカスタマイズの入口がある。' },
-  { brand: 'JINS', sku: 'URF-26S-097', name: '26SS SUNGLASSES Bold', frames: ['square-sun'], url: 'https://www.jins.com/jp/item/URF-26S-097_192.html',
-    spec: 'スクエア・グレー（クリアミラー）・54.5□18.0-145.0', note: '太い樹脂の直線的なサングラス。レンズの交換は店舗のみ。' },
-  { brand: 'JINS', sku: 'UMF-26S-081', name: '26SS SUNGLASSES Metal', frames: ['boston-sun'], url: 'https://www.jins.com/jp/item/UMF-26S-081.html',
-    spec: 'ボストン・マットブラック・ブラウンのレンズ・54□20-149', note: 'メタルのボストン型サングラス。レンズの交換は店舗のみ。' },
-  { brand: 'JINS', sku: 'URF-26S-089', name: '26SS SUNGLASSES Combination', frames: ['boston-sun'], url: 'https://www.jins.com/jp/item/URF-26S-089_100.html',
-    spec: 'ボストン・クリア・ブルーのレンズ・51□20-150', note: '透明なフレームにブルーのレンズ。レンズの交換は店舗のみ。' },
+ {
+  "brand": "JINS",
+  "sku": "UCF-22A-165",
+  "name": "STANDARD Acetate",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-22A-165.html",
+  "spec": "ウェリントン・ブラック・47□24-145",
+  "note": "黒いセルの定番ウェリントン。対応レンズに薄い色のレンズ（ライトブルー・ライトラベンダーなど）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-22A-181",
+  "name": "STANDARD Acetate",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-22A-181_94.html",
+  "spec": "ボストン・ブラック・47.0□21.5-144.0",
+  "note": "黒いセルのボストン。対応レンズに薄い色のレンズがある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-22A-184",
+  "name": "STANDARD Acetate",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-22A-184.html",
+  "spec": "クラウンパント・ブラック・48□23-144",
+  "note": "ボストンの上辺を角ばらせたクラウンパント（公式の仕様は多角形）。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-22A-202",
+  "name": "Authentic Rim Metal",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-22A-202.html",
+  "spec": "ラウンド・ブラウン",
+  "note": "細いメタルの丸メガネ。対応レンズに薄い色のレンズがある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-22A-262",
+  "name": "Rim Metal",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-22A-262_96.html",
+  "spec": "スクエア・シルバー・54□17-143",
+  "note": "細いメタルの横長スクエア。対応レンズに薄い色のレンズがある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-22A-260",
+  "name": "Rim Metal",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-22A-260_84.html",
+  "spec": "オーバル・ブラウン・52□18-143",
+  "note": "細いメタルのオーバル。対応レンズに薄い色のレンズがある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-223",
+  "name": "NEW CLASSIC No.03",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-223_294.html",
+  "spec": "サーモント・ブラック/グレー・49□21-150",
+  "note": "前はチタン、つるはアセテート。眉の位置に太いライン。対応レンズにライトカラーがある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTP-26S-149",
+  "name": "26SS STANDARD Rimless",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/MTP-26S-149_96.html",
+  "spec": "リムレス・シルバー・56□18-144",
+  "note": "対応レンズにライトアッシュ・ライトブルー・ライトラベンダーなどの薄い色がある（度数などの条件あり）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3025",
+  "name": "AVIATOR CLASSIC",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3025aviator%20classic-%E3%82%A2%E3%83%AA%E3%82%B9%E3%82%BF%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%89/805289602057",
+  "spec": "アビエーター・アリスタゴールド・G-15グリーン・58-14",
+  "note": "パイロット型の元祖。金のメタルに緑のG-15レンズ。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-242",
+  "name": "JINS TODAY 2025-26FW",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-242_396.html",
+  "spec": "ティアドロップ・シルバー",
+  "note": "メガネとして売られているティアドロップ（サングラスではない）。対応レンズに薄い色のレンズがある。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB2140F",
+  "name": "ORIGINAL WAYFARER CLASSIC",
+  "frames": [
+   "wellington-sun",
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/0RB2140F-ORIGINAL%20WAYFARER%20CLASSIC-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8053672054682",
+  "spec": "ウェイファーラー（公式の分類：スクエア）・ブラック・G-15グリーン・52-22",
+  "note": "ウェリントン型サングラスの定番。公式にレンズのカスタマイズの入口がある。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3447",
+  "name": "ROUND METAL",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3447round%20metal-%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%89/8056597858236",
+  "spec": "ラウンド・ゴールド・グレーのグラデーション・53-21",
+  "note": "丸いメタルのサングラス。公式にレンズのカスタマイズの入口がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-097",
+  "name": "26SS SUNGLASSES Bold",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-097_192.html",
+  "spec": "スクエア・グレー（クリアミラー）・54.5□18.0-145.0",
+  "note": "太い樹脂の直線的なサングラス。レンズの交換は店舗のみ。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-081",
+  "name": "26SS SUNGLASSES Metal",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-081.html",
+  "spec": "ボストン・マットブラック・ブラウンのレンズ・54□20-149",
+  "note": "メタルのボストン型サングラス。レンズの交換は店舗のみ。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-089",
+  "name": "26SS SUNGLASSES Combination",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-089_100.html",
+  "spec": "ボストン・クリア・ブルーのレンズ・51□20-150",
+  "note": "透明なフレームにブルーのレンズ。レンズの交換は店舗のみ。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26A-042",
+  "name": "JINS TODAY Rim Metal［中顔面短縮メガネ］",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26A-042_196.html",
+  "spec": "ウェリントン・シルバー・52□19-142",
+  "note": "前：メタル、つる：メタル。顔の中央を短く見せる設計として売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-26A-078",
+  "name": "STANDARD BASIC Metal & Combination",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-26A-078_058.html",
+  "spec": "ウェリントン・ネイビー・57□16-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTF-26A-069",
+  "name": "STANDARD BASIC Titanium",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MTF-26A-069_058.html",
+  "spec": "ウェリントン・ネイビー・56□17-145",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MUF-26A-082",
+  "name": "STANDARD BASIC Metal & Combination",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MUF-26A-082_097.html",
+  "spec": "ウェリントン・マットブラック・57.2□17.0-147.0",
+  "note": "前：樹脂、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MGF-26A-033",
+  "name": "清潔感の新法則 for 面長顔",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MGF-26A-033_297.html",
+  "spec": "ウェリントン・マットブラック・52.5□21.0-154.0",
+  "note": "前：サスティナブル素材、つる：メタル。面長顔向けとして売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MGF-26A-034",
+  "name": "清潔感の新法則 for 逆三角形顔",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MGF-26A-034_194.html",
+  "spec": "ウェリントン・ブラック×シルバー・49□22-147",
+  "note": "前：サスティナブル素材、つる：メタル。逆三角形顔向けとして売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MGF-26A-035",
+  "name": "清潔感の新法則 for 面長顔",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MGF-26A-035_297.html",
+  "spec": "ウェリントン・マットブラック・50□21-151",
+  "note": "前：サスティナブル素材、つる：サスティナブル素材。面長顔向けとして売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MGF-25S-082",
+  "name": "JINS 360° Bold",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/MGF-25S-082_00.html",
+  "spec": "ウェリントン・クリア・54.8□18.0-148.0",
+  "note": "前：サスティナブル素材、つる：サスティナブル素材。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-414",
+  "name": "＜RIM＞ Skinny Acetate",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-414_183.html",
+  "spec": "ウェリントン・ブラウン・51□20-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-415",
+  "name": "＜RIM＞ Skinny Acetate",
+  "frames": [
+   "wellington"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-415_121.html",
+  "spec": "ウェリントン・クリア・48□21-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26A-039",
+  "name": "JINS TODAY Rim Metal［中顔面短縮メガネ］",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26A-039_394.html",
+  "spec": "ボストン・ブラック×ゴールド・51□20-142",
+  "note": "前：メタル、つる：メタル。顔の中央を短く見せる設計として売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MGF-25S-083",
+  "name": "JINS 360° Bold",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/MGF-25S-083_97.html",
+  "spec": "ボストン・マットブラック・48.8□21.0-148.0",
+  "note": "前：サスティナブル素材、つる：サスティナブル素材。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-416",
+  "name": "＜RIM＞ Skinny Acetate",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-416_289.html",
+  "spec": "ボストン・グレー・45□22-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-131",
+  "name": "NEW CLASSIC No.08",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-131_186.html",
+  "spec": "ボストン・ブラウンデミ／ホワイトゴールド・47□25-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MRF-18A-037",
+  "name": "Light Slim",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/MRF-18A-037_58.html",
+  "spec": "ボストン・ネイビー・50□19-151",
+  "note": "前：樹脂、つる：樹脂。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UGF-26S-109",
+  "name": "JINS × Heatherwick Studio",
+  "frames": [
+   "boston"
+  ],
+  "url": "https://www.jins.com/jp/item/UGF-26S-109_34.html",
+  "spec": "ボストン・ストリームファーン・51.4□18.5-147.0",
+  "note": "前：サスティナブル素材、つる：サスティナブル素材。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26A-040",
+  "name": "JINS TODAY Rim Metal［中顔面短縮メガネ］",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26A-040_394.html",
+  "spec": "ラウンド・ブラック×ゴールド・53□20-142",
+  "note": "前：メタル、つる：メタル。顔の中央を短く見せる設計として売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26S-111",
+  "name": "JINS × Heatherwick Studio",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26S-111_93.html",
+  "spec": "ラウンド・ブラッシュドメタル・50□19-138",
+  "note": "前：チタニウム、つる：チタニウム。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UDF-26S-162",
+  "name": "GINZA Limited Edition Celluloid",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UDF-26S-162_86.html",
+  "spec": "ラウンド・ブラウンデミ・47□22-145",
+  "note": "前：セルロイド、つる：セルロイド。限定モデル（売っている店は公式ページで確認）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26S-165",
+  "name": "GINZA Limited Edition Titanium",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26S-165_95.html",
+  "spec": "ラウンド・ゴールド・45□23-164",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-22A-185",
+  "name": "STANDARD Acetate",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-22A-185_00.html",
+  "spec": "ラウンド・クリア・45.0□20.5-144.0",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-24S-207",
+  "name": "JINS 360°",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-24S-207_97.html",
+  "spec": "ラウンド・マットブラック・44□22-150",
+  "note": "前：樹脂、つる：樹脂。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-325",
+  "name": "＜RIM＞ Iconic Modern Frame",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-325_394.html",
+  "spec": "ラウンド・ブラック・47□23-150",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-316",
+  "name": "＜RIM＞ T-Titanium",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-316_395.html",
+  "spec": "ラウンド・ゴールド・51□19-140",
+  "note": "前：メタル、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-24A-073",
+  "name": "Modern Rim Metal",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-24A-073_196.html",
+  "spec": "ラウンド・シルバー・48□21-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-22A-245",
+  "name": "BE BOLD",
+  "frames": [
+   "round"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-22A-245_83.html",
+  "spec": "ラウンド・レッドブラウンデミ・43.7□27.4-148.0",
+  "note": "前：樹脂、つる：樹脂。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-26A-075",
+  "name": "STANDARD BASIC Metal & Combination",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-26A-075_058.html",
+  "spec": "スクエア・ネイビー・55□17-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-26A-079",
+  "name": "STANDARD BASIC Metal & Combination",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-26A-079_093.html",
+  "spec": "スクエア・ガンメタル・56□15-143",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTF-26A-067",
+  "name": "STANDARD BASIC Titanium",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MTF-26A-067_096.html",
+  "spec": "スクエア・シルバー・56□16-145",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTF-26A-070",
+  "name": "STANDARD BASIC Titanium",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MTF-26A-070_097.html",
+  "spec": "スクエア・マットブラック・55□18-145",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTF-26A-071",
+  "name": "STANDARD BASIC Titanium",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MTF-26A-071_093.html",
+  "spec": "スクエア・ガンメタル・56□15-147",
+  "note": "前：チタン合金（βチタン）、つる：チタニウム。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MUF-26A-081",
+  "name": "STANDARD BASIC Metal & Combination",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MUF-26A-081_092.html",
+  "spec": "スクエア・グレー×シルバー・55.1□17.0-147.0",
+  "note": "前：樹脂、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MTF-26A-030",
+  "name": "清潔感の新法則 for 丸顔",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/MTF-26A-030_196.html",
+  "spec": "スクエア・シルバー・56□17-151",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。丸顔向けとして売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-278",
+  "name": "＜RIM＞ Low-Profile Acetate",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-278_79.html",
+  "spec": "スクエア・バーガンディー・53□18-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-279",
+  "name": "＜RIM＞ Low-Profile Acetate",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-279_94.html",
+  "spec": "スクエア・ブラック・54.5□17.0-145.0",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26A-023",
+  "name": "JINS TODAY 2026-27FW",
+  "frames": [
+   "square"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26A-023_99.html",
+  "spec": "スクエア・ダークグレー・55□18-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-280",
+  "name": "＜RIM＞ Low-Profile Acetate",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-280_02.html",
+  "spec": "オーバル・ピンク・49□19-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26A-025",
+  "name": "JINS TODAY 2026-27FW",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26A-025_86.html",
+  "spec": "オーバル・ブラウンデミ・53□19-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26A-024",
+  "name": "JINS TODAY 2026-27FW",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26A-024_02.html",
+  "spec": "オーバル・ピンクゴールド・54.0□17.5-147.0",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCN-26S-123",
+  "name": "JINS TODAY 2026SS",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCN-26S-123_394.html",
+  "spec": "オーバル・ブラック・54□19-138",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-117",
+  "name": "JINS TODAY 2026SS",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-117_100.html",
+  "spec": "オーバル・クリア・53□20-142",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-179",
+  "name": "JINS TODAY 2026SS",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-179_178.html",
+  "spec": "オーバル・ボルドー・52.5□18.0-143.0",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25A-399",
+  "name": "＜RIM＞Casual Metal",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25A-399_85.html",
+  "spec": "オーバル・ブラウン・49□18-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-384",
+  "name": "＜RIM＞Urban Chic Combination",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-384_105.html",
+  "spec": "オーバル・レッド・51□17-143",
+  "note": "前：アセテート、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-142",
+  "name": "JINS TODAY 2025SS",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-142_101.html",
+  "spec": "オーバル・ペールピンク・54□17-146",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-237",
+  "name": "＜RIM＞ Bold Acetate",
+  "frames": [
+   "oval"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-237_102.html",
+  "spec": "オーバル・ピンク・48□19-140",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-26A-032",
+  "name": "清潔感の新法則 for ベース型顔",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-26A-032_194.html",
+  "spec": "サーモント・ブラック×シルバー・50.0□21.5-151.0",
+  "note": "前：メタル、つる：サスティナブル素材。ベース型顔向けとして売られている。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-287",
+  "name": "Combination Titanium",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-287_197.html",
+  "spec": "サーモント・マットブラック・52□20-148",
+  "note": "前：メタル、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-127",
+  "name": "＜RIM＞Geek Frame",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-127_05.html",
+  "spec": "サーモント・レッド・52□19-145",
+  "note": "前：メタル、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-255",
+  "name": "JINS TODAY 2025-26FW",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-255_81.html",
+  "spec": "サーモント・ベージュ×ゴールド・54□20-147",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25A-185",
+  "name": "JINS TODAY Combination Metal",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25A-185_100.html",
+  "spec": "サーモント・クリア・52.0□20.5-154.0",
+  "note": "前：メタル、つる：樹脂。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-288",
+  "name": "＜RIM＞Retro Chic Acetate",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-288_94.html",
+  "spec": "サーモント・ブラック・51□18-145",
+  "note": "前：メタル、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-289",
+  "name": "＜RIM＞Retro Chic Acetate",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-289_94.html",
+  "spec": "サーモント・ブラック・52□17-145",
+  "note": "前：メタル、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-206",
+  "name": "JINS Combination Titanium",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-206_157.html",
+  "spec": "サーモント・ネイビーササ・50.3□19.0-143.0",
+  "note": "前：樹脂、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "MMF-25S-025",
+  "name": "JINS × TAKAGI TAKUYA",
+  "frames": [
+   "browline"
+  ],
+  "url": "https://www.jins.com/jp/item/MMF-25S-025_94.html",
+  "spec": "サーモント・ブラック・50□22-152",
+  "note": "前：メタル、つる：樹脂。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMP-26A-124",
+  "name": "＜RIM＞ Rimless",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UMP-26A-124_96.html",
+  "spec": "リムレス・シルバー・54□18-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMP-26A-261",
+  "name": "＜RIM＞ Rimless",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UMP-26A-261_96.html",
+  "spec": "リムレス・シルバー・52□18-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMP-26A-262",
+  "name": "＜RIM＞ Rimless",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UMP-26A-262_96.html",
+  "spec": "リムレス・シルバー・53□18-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMP-26A-263",
+  "name": "＜RIM＞ Rimless",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UMP-26A-263_96.html",
+  "spec": "リムレス・シルバー・51□18-145",
+  "note": "前：メタル、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTP-26A-020",
+  "name": "JINS TODAY 2026-27FW",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UTP-26A-020_95.html",
+  "spec": "リムレス・ゴールド・55□17-142",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTP-26A-021",
+  "name": "JINS TODAY 2026-27FW",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UTP-26A-021_96.html",
+  "spec": "リムレス・シルバー・55□17-142",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMP-25S-141",
+  "name": "JINS TODAY 2025SS",
+  "frames": [
+   "rimless"
+  ],
+  "url": "https://www.jins.com/jp/item/UMP-25S-141_395.html",
+  "spec": "リムレス・ゴールド・54□16-147",
+  "note": "前：メタル、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26S-180",
+  "name": "JINS TODAY 2026SS",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26S-180_394.html",
+  "spec": "ティアドロップ（メガネ）・ブラック・57□16-147",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-398",
+  "name": "＜RIM＞Inner rim",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-398_121.html",
+  "spec": "ティアドロップ（メガネ）・ペールイエロー・52□18-145",
+  "note": "前：アセテート、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-236",
+  "name": "＜RIM＞ Bold Acetate",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-236_286.html",
+  "spec": "ティアドロップ（メガネ）・ブラウンデミ・57□16-140",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-253",
+  "name": "＜RIM＞ Bold Acetate",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-253_121.html",
+  "spec": "ティアドロップ（メガネ）・クリアペールイエロー・56□20-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-256",
+  "name": "＜RIM＞ Bold Acetate",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-256_128.html",
+  "spec": "ティアドロップ（メガネ）・カーキ・56□18-145",
+  "note": "前：アセテート、つる：アセテート。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-24A-108",
+  "name": "JINS TODAY 2024-25FW",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-24A-108_180.html",
+  "spec": "ティアドロップ（メガネ）・オフホワイト・56□18-145",
+  "note": "前：アセテート、つる：メタル。対応レンズに薄い色（ライトカラー）がある。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-009",
+  "name": "JINS for beautiful people over engineering sunglasses",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-009_96.html",
+  "spec": "ティアドロップ・フレーム：シルバー／レンズ：グレー・58.7□17.3-150.0",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-300",
+  "name": "25SS SUNGLASSES TODAY",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-300_180.html",
+  "spec": "ティアドロップ・フレーム：オフホワイト／レンズ：オレンジグラデーション・56□18-145",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-257",
+  "name": "JINS TODAY 2025-26FW SUNGLASSES",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-257_95.html",
+  "spec": "ティアドロップ・フレーム：ゴールド／レンズ：ブラウン・57□16-150",
+  "note": "前：チタン合金（βチタン）、つる：チタン合金（βチタン）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-245",
+  "name": "JINS TODAY 2025-26FW SUNGLASSES",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-245_394.html",
+  "spec": "ティアドロップ・フレーム：ブラック／レンズ：グレー・54□20-147",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-411",
+  "name": "＜RIM＞ SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-411_87.html",
+  "spec": "ウェリントン・ダークブラウンデミ・54□19-150",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-285",
+  "name": "Shinjuku Limited Edition Combination SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-285_83.html",
+  "spec": "ウェリントン・フレーム：ライトブラウンササ／レンズ：グレーグラデーション・49□20-148",
+  "note": "前：アセテート、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-288",
+  "name": "Shinjuku Limited Edition Acetate SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-288_200.html",
+  "spec": "ウェリントン・フレーム：クリア／レンズ：ブルー・52□20-145",
+  "note": "前：アセテート、つる：アセテート。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-286",
+  "name": "Shinjuku Limited Edition Titanium SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-286_52.html",
+  "spec": "ウェリントン・フレーム：ライトブルー／レンズ：ライトグレー・47□22-145",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-270",
+  "name": "26SS SUNGLASSES CLEAR",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-270_86.html",
+  "spec": "ウェリントン・フレーム：ブラウンデミ／レンズ：クリア・51.0□23.5-145.0",
+  "note": "前：樹脂、つる：樹脂。レンズが透明なクリアレンズサングラス。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-274",
+  "name": "26SS SUNGLASSES Photochromic",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-274_86.html",
+  "spec": "ウェリントン・フレーム：ブラウンデミ／レンズ：ブラウン・51.0□23.5-145.0",
+  "note": "前：樹脂、つる：樹脂。光でレンズの色が変わる調光タイプ。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UDF-26S-167",
+  "name": "GINZA Limited Edition Celluloid SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UDF-26S-167_21.html",
+  "spec": "ウェリントン・フレーム：ペールイエロー／レンズ：ダークグレー・48□22-145",
+  "note": "前：セルロイド、つる：セルロイド。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26S-172",
+  "name": "GINZA Limited Edition Titanium SUNGLASSES",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26S-172_94.html",
+  "spec": "ウェリントン・フレーム：ブラック／レンズ：グレー・49□20-164",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UGF-26S-105",
+  "name": "JINS for beautiful people parallax sunglasses",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UGF-26S-105_85.html",
+  "spec": "ウェリントン・フレーム：ダークブラウン／レンズ：ブラウン・49.0□23.4-152.0",
+  "note": "前：サスティナブル素材、つる：樹脂。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-068",
+  "name": "26SS SUNGLASSES STANDARD",
+  "frames": [
+   "wellington-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-068_129.html",
+  "spec": "ウェリントン・フレーム：ダークカーキ／レンズ：グリーン・55.5□18.0-149.0",
+  "note": "前：樹脂、つる：樹脂。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UDF-26S-170",
+  "name": "GINZA Limited Edition Celluloid SUNGLASSES",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UDF-26S-170_21.html",
+  "spec": "ラウンド・フレーム：ペールイエロー／レンズ：ダークグレー・47□22-145",
+  "note": "前：セルロイド、つる：セルロイド。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-26S-169",
+  "name": "GINZA Limited Edition Titanium SUNGLASSES",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-26S-169_94.html",
+  "spec": "ラウンド・フレーム：ブラック／レンズ：グレー・45□23-164",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-007",
+  "name": "JINS for beautiful people over engineering sunglasses",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-007_99.html",
+  "spec": "ラウンド・フレーム：ダークグレー／レンズ：ピンク・49.8□20.6-150.0",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-293",
+  "name": "SUNGLASSES Modern rim metal",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-293_85.html",
+  "spec": "ラウンド・フレーム：ダークブラウン／レンズ：ブラウン・51□19-145",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-25S-295",
+  "name": "SUNGLASSES Modern rim metal",
+  "frames": [
+   "round-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-25S-295_85.html",
+  "spec": "ラウンド・フレーム：ダークブラウン／レンズ：ブラウン・49□21-145",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-284",
+  "name": "Shinjuku Limited Edition Combination SUNGLASSES",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-284_99.html",
+  "spec": "スクエア・フレーム：ブラックササ／レンズ：ブラウン・51□19-148",
+  "note": "前：アセテート、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-276",
+  "name": "＜RIM＞ SUNGLASSES",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-276_96.html",
+  "spec": "スクエア・フレーム：シルバー／レンズ：グレー・53□18-148",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-168",
+  "name": "GINZA Limited Edition Acetate SUNGLASSES",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-168_81.html",
+  "spec": "スクエア・フレーム：ベージュ／レンズ：ダークブラウン・51□18-165",
+  "note": "前：アセテート、つる：アセテート。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-183",
+  "name": "＜RIM＞ SUNGLASSES",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-183_96.html",
+  "spec": "スクエア・フレーム：シルバー／レンズ：グレー・54□20-145",
+  "note": "前：メタル、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-098",
+  "name": "26SS SUNGLASSES Bold",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-098_394.html",
+  "spec": "スクエア・フレーム：ブラック／レンズ：ブラウン・54.5□20.0-145.0",
+  "note": "前：樹脂、つる：樹脂。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UGF-26S-077",
+  "name": "26SS SUNGLASSES Slim Airframe",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UGF-26S-077_92.html",
+  "spec": "スクエア・フレーム：グレー／レンズ：偏光グレー・57□16-153",
+  "note": "前：サスティナブル素材、つる：サスティナブル素材。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-114",
+  "name": "26SS SUNGLASSES Metal",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-114_91.html",
+  "spec": "スクエア・フレーム：シルバー／レンズ：グレー・57□19-149",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25S-296",
+  "name": "25SS SUNGLASSES TODAY",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25S-296_286.html",
+  "spec": "スクエア・フレーム：ブラウンデミ／レンズ：ブラウン・53□19-140",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25S-301",
+  "name": "25SS SUNGLASSES TODAY",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25S-301_196.html",
+  "spec": "スクエア・フレーム：シルバー／レンズ：ブルー・56□16-146",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-26S-134",
+  "name": "NEW CLASSIC No.08 SUNGLASSES",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-26S-134_192.html",
+  "spec": "ボストン・フレーム：クリアグレー／シルバー／レンズ：ダークグレー・49□25-145",
+  "note": "前：アセテート、つる：アセテート。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UCF-25A-289",
+  "name": "Shinjuku Limited Edition Acetate SUNGLASSES",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UCF-25A-289_124.html",
+  "spec": "ボストン・フレーム：イエロー／レンズ：グレーグラデーション・49□21-145",
+  "note": "前：アセテート、つる：アセテート。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UTF-25A-287",
+  "name": "Shinjuku Limited Edition Titanium SUNGLASSES",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UTF-25A-287_68.html",
+  "spec": "ボストン・フレーム：パープル／レンズ：ライトブラウン・46□22-145",
+  "note": "前：チタニウム、つる：チタン合金（βチタン）。限定モデル（売っている店は公式ページで確認）。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-267",
+  "name": "26SS SUNGLASSES CLEAR",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-267_94.html",
+  "spec": "ボストン・フレーム：ブラック／レンズ：クリア・51□20-150",
+  "note": "前：樹脂、つる：樹脂。レンズが透明なクリアレンズサングラス。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-268",
+  "name": "26SS SUNGLASSES CLEAR",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-268_86.html",
+  "spec": "ボストン・フレーム：ブラウンデミ／レンズ：クリア・53.2□19.0-149.0",
+  "note": "前：樹脂、つる：メタル。レンズが透明なクリアレンズサングラス。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-269",
+  "name": "26SS SUNGLASSES CLEAR",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-269_94.html",
+  "spec": "ボストン・フレーム：ブラック／レンズ：クリア・50.2□21.0-149.0",
+  "note": "前：樹脂、つる：メタル。レンズが透明なクリアレンズサングラス。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-271",
+  "name": "26SS SUNGLASSES Photochromic",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-271_94.html",
+  "spec": "ボストン・フレーム：ブラック／レンズ：グレー・51□20-150",
+  "note": "前：樹脂、つる：樹脂。光でレンズの色が変わる調光タイプ。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-272",
+  "name": "26SS SUNGLASSES Photochromic",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-272_86.html",
+  "spec": "ボストン・フレーム：ブラウンデミ／レンズ：ブラウン・53.2□19.0-149.0",
+  "note": "前：樹脂、つる：メタル。光でレンズの色が変わる調光タイプ。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "URF-26S-273",
+  "name": "26SS SUNGLASSES Photochromic",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/URF-26S-273_94.html",
+  "spec": "ボストン・フレーム：ブラック／レンズ：グレー・50.2□21.0-149.0",
+  "note": "前：樹脂、つる：メタル。光でレンズの色が変わる調光タイプ。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "JINS",
+  "sku": "UMF-26S-277",
+  "name": "＜RIM＞ SUNGLASSES",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.jins.com/jp/item/UMF-26S-277_95.html",
+  "spec": "ボストン・フレーム：ゴールド／レンズ：イエロー・52□17-145",
+  "note": "前：メタル、つる：メタル。レンズの交換は店舗でできる。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4258F",
+  "name": "RB4258F",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/0RB4258F-RB4258-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8053672792492",
+  "spec": "ポリッシュ ブラック・ライトブルー諧調レンズ・52-20",
+  "note": "公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB2016",
+  "name": "DADDY-O（ダディオー）",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/0RB2016-DADDY-O%EF%BC%88%E3%83%80%E3%83%87%E3%82%A3%E3%82%AA%E3%83%BC%EF%BC%89-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597139908",
+  "spec": "ポリッシュ ブラック・G-15 グリーンレンズ・59-17",
+  "note": "公式の分類はレクタングル（横長の四角）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3928",
+  "name": "RB3928",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3928rb3928%20by%20asap%20rocky-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262905845",
+  "spec": "ポリッシュ ブラック・ダークグレー偏光レンズレンズ・54-20",
+  "note": "公式の分類はレクタングル（横長の四角）。偏光レンズ。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4259F",
+  "name": "RB4259F",
+  "frames": [
+   "boston-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4259Frb4259-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597296526",
+  "spec": "ポリッシュ ブラック・ダークグレー定番レンズ・53-20",
+  "note": "公式の分類はパントス（日本でいうボストン型）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4391D",
+  "name": "RB4391D",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4391Drb4391d-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597715997",
+  "spec": "ポリッシュ ブラック・ブルーレンズ・65-18",
+  "note": "公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB2132F",
+  "name": "NEW WAYFARER CLASSIC",
+  "frames": [
+   "wellington-sun",
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB2132Fnew%20wayfarer%20classic-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8053672174571",
+  "spec": "ポリッシュ ブラック・G-15 グリーンポラライズドレンズ・55-18",
+  "note": "ウェイファーラー。公式の分類はスクエア（日本ではウェリントン型とも呼ばれる）。偏光レンズ。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4940",
+  "name": "WAYFARER PUFFER",
+  "frames": [
+   "wellington-sun",
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4940wayfarer%20puffer-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262916193",
+  "spec": "ポリッシュ ブラック・ダークブラウンミラーローズゴールドレンズ・47-23",
+  "note": "ウェイファーラー。公式の分類はスクエア（日本ではウェリントン型とも呼ばれる）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3793",
+  "name": "BILL MAX",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3793bill%20max-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262973042",
+  "spec": "ポリッシュ ブラック・ライトグレーグラディエントダークグレーレンズ・59-17",
+  "note": "公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4461D",
+  "name": "RB4461D",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4461Drb4461d-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262457993",
+  "spec": "ポリッシュ ブラック・ブルーレンズ・64-17",
+  "note": "公式の分類はレクタングル（横長の四角）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4401D",
+  "name": "RB4401D",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4401Drb4401d-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597846066",
+  "spec": "ポリッシュ ブラック・イエローレンズ・57-20",
+  "note": "公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4954",
+  "name": "FLACKO PUFFER",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4954flacko%20puffer-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262959213",
+  "spec": "ポリッシュ ブラック・ダークブルーレンズ・52-23",
+  "note": "公式の分類はパイロット（ティアドロップ型）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3183",
+  "name": "RB3183",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3183%20MALE%20rb3183-%E3%82%AC%E3%83%B3%E3%83%A1%E3%82%BF%E3%83%AB/805289018933",
+  "spec": "ポリッシュ ガンメタル・G-15 グリーンポラライズドレンズ・63-15",
+  "note": "公式の分類はレクタングル（横長の四角）。偏光レンズ。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4420",
+  "name": "RB4420",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4420rb4420-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597959346",
+  "spec": "ポリッシュ ブラック・Dark Green Polarizedレンズ・65-18",
+  "note": "公式の分類はスクエア。偏光レンズ。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB8069D",
+  "name": "RB8069D",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB8069Drb8069d%20titanium-%E3%82%B4%E3%83%BC%E3%83%AB%E3%83%89/8056266002236",
+  "spec": "ポリッシュ ゴールド・ライトグリーンレンズ・55-18",
+  "note": "公式の分類はレクタングル（横長の四角）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3016",
+  "name": "CLUBMASTER CLASSIC",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3016clubmaster%20classic-%E3%82%B7%E3%83%AB%E3%83%90%E3%83%BC%E4%B8%8A%E3%81%AB%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056597955836",
+  "spec": "ポリッシュ シルバー上にブラック・ブルー/グレーレンズ・51-21",
+  "note": "眉の位置に太いラインのクラブマスター。公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB3925",
+  "name": "AVIATOR MAX SUMMER CAPSULE",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB3925aviator%20max%20summer%20capsule-%E3%82%AC%E3%83%B3%E3%83%A1%E3%82%BF%E3%83%AB/8056262897591",
+  "spec": "ポリッシュ ガンメタル・バイオレットレンズ・58-16",
+  "note": "公式の分類はパイロット（ティアドロップ型）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4925",
+  "name": "AVIATOR PUFFER",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4925aviator%20puffer-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262960097",
+  "spec": "ポリッシュ ブラック・ダークブルーレンズ・52-21",
+  "note": "公式の分類はパイロット（ティアドロップ型）。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB2198",
+  "name": "BILL SUMMER CAPSULE",
+  "frames": [
+   "square-sun"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB2198bill%20summer%20capsule-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262899342",
+  "spec": "ポリッシュ ブラック・イエローレンズ・60-14",
+  "note": "公式の分類はスクエア。"
+ },
+ {
+  "brand": "Ray-Ban",
+  "sku": "RB4125",
+  "name": "CATS 5000 CLASSIC SUMMER CAPSULE",
+  "frames": [
+   "teardrop"
+  ],
+  "url": "https://www.ray-ban.com/japan/sunglasses/RB4125cats%205000%20classic%20summer%20capsule-%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF/8056262897706",
+  "spec": "ポリッシュ ブラック・グレーレンズ・59-13",
+  "note": "公式の分類はパイロット（ティアドロップ型）。"
+ }
 ];
