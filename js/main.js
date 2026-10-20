@@ -15,7 +15,7 @@ import { predictAttractiveness, validateJapaneseMaleModel } from './relative-sco
 import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
-import { renderEyewearGallery, updateEyewearGallery } from './eyewear-gallery.js';
+import { renderEyewearGallery, updateEyewearGallery, renderPicks } from './eyewear-gallery.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -593,7 +593,8 @@ function eyewearTab(r) {
       <button type="button" aria-pressed="${ui.eyewear === 'glasses'}" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
       <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
-    ${renderEyewearGallery(list, eyewearChoices[ui.eyewear])}
+    ${renderPicks(list, s)}
+    ${renderEyewearGallery(list, eyewearChoices[ui.eyewear], s)}
     <h2 class="section-title">形ごとの相性と選ぶポイント</h2>
     ${rankList(list, true, 'eyewear')}
     <h2 class="section-title">サイズの目安</h2>
@@ -724,7 +725,7 @@ view.addEventListener('click', (e) => {
     const choice = eyewearChoices[ui.eyewear];
     if (t.dataset.galleryShape && list.some(g => g.id === t.dataset.galleryShape)) choice.frame = t.dataset.galleryShape;
     if (t.dataset.galleryColor) choice.color = t.dataset.galleryColor;
-    const gallery = view.querySelector('.eyewear-gallery'); updateEyewearGallery(gallery, list, choice);
+    const gallery = view.querySelector('.eyewear-gallery'); updateEyewearGallery(gallery, list, choice, evaluate(rec).size);
     if (t.hasAttribute('data-gallery-jump')) { gallery?.scrollIntoView({ block: 'start' }); gallery?.querySelector(`[data-gallery-shape="${choice.frame}"]`)?.focus({ preventScroll: true }); }
     return;
   }
