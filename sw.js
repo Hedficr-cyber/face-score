@@ -1,5 +1,5 @@
 // オフラインでも開けるようにする。版を上げたら CACHE の名前も変える。
-const CACHE = 'face-score-0.7.3';
+const CACHE = 'face-score-0.7.4';
 // 顔の検出のライブラリとモデル（約15MB）は版と別に持つ。MediaPipe やモデルを入れ替えたときだけ名前を変える
 const ASSETS = 'face-score-assets-mp1.0.1';
 const SHELL = [

@@ -176,14 +176,14 @@ function renderWelcome() {
   view.innerHTML = `<section class="welcome fade-in">
     <div class="welcome-mark">${welcomeMark()}</div>
     <h1>顔を測ってみましょう</h1>
-    <p>正面から3回撮って平均します。<br>写真は保存せず、どこにも送りません。</p>
+    <p>鏡に向かうような正面顔を3回撮って平均します。<br>写真は保存せず、どこにも送りません。</p>
     <p class="small">日本人の評価者が好む部位の特徴と顔の形、研究で魅力との関係が確かめられた要素（平均顔への近さ・男らしさのバランス）を合わせ、著名人・スポーツ選手中心の基準 ${RESEARCH_REF.n} 人の中の順位（50点が真ん中）と10段階で出します。日本人男性全体の順位ではありません。</p>
     <button class="btn" type="button" data-act="shoot">測定をはじめる</button>
     ${Object.keys(store.setting('focals') || {}).length ? '' : '<div style="margin-top:12px"><button class="btn ghost" type="button" data-act="calib">先にカメラを較正する（約30秒）</button></div>'}
     <ul class="tips">
       <li><span>01</span>明るい場所で、顔に影ができないように</li>
       <li><span>02</span>メガネを外し、前髪を上げておでこを出す</li>
-      <li><span>03</span>スマホを顔から40cmくらい（ひじを軽く曲げる）・目の高さに構え、顔の輪郭を枠に合わせる</li>
+      <li><span>03</span>カメラのレンズを目の高さ・顔から40cmくらいに合わせ、顔の輪郭を枠に合わせる</li>
       <li><span>04</span>口を閉じて正面を向き、画面の顔ではなくカメラのレンズを見る</li>
       <li><span>05</span>目は見開かず、普段どおりに。まばたきは自然にする</li>
     </ul>
@@ -598,7 +598,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
     <li>魅力の正解でも、人としての価値の評価でもありません。</li>
   </ul>
   <h3>撮影の条件</h3>
-  <p>目線や目の開き方によっても測定値が動く可能性があります。撮影時は画面の顔ではなくレンズを見て、目を見開かず普段どおりにしてください。緑の表示は、レンズを見ていることを確認した表示ではありません。</p>
+  <p>鏡に正対するような自然な正面顔を、同じ条件で測ります。レンズ自体を目の高さに合わせ、画面の顔ではなくレンズを見てください。目は見開かず普段どおりに。目線や目の開き方によっても測定値が動く可能性があります。緑の表示は、レンズを見ていることを確認した表示ではありません。</p>
   <h3>参考：比率スコアの出し方</h3>
   <ul>
     <li>顔の478点の位置をスマホの中で検出し、顔の向きを正面にそろえてから測ります。</li>
@@ -655,7 +655,7 @@ const cap = {
   ring: $('#guideRing'), dots: [...$('#capShots').children], flash: $('#capFlash'), hint: $('.cap-hint'), session: null, controller: null, onCancel: null,
 };
 
-const HINT = '正面を向き、画面の顔ではなくカメラのレンズを見てください。目は見開かず、普段どおりに。顔から40cmくらい・目の高さで、輪郭を枠に合わせてください';
+const HINT = '鏡に向かうように正面へ。レンズを目の高さ・顔から40cmくらいに合わせ、画面の顔ではなくレンズを見てください。目は見開かず普段どおりに';
 
 // 撮影画面を開く。options.onDone を渡さなければ、ふつうの測定（生え際の調整へ進む）
 async function openCapture(options = {}) {
