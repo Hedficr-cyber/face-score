@@ -48,7 +48,7 @@ function check(lm, fit, result, w, h, ctx, opts) {
     return { code: 'smile', text: '自然な表情にしてください' };
   }
   if (Math.max(blend(result, 'eyeBlinkLeft'), blend(result, 'eyeBlinkRight')) > C.maxBlink) {
-    return { code: 'blink', text: '目を開けてください' };
+    return { code: 'blink', text: 'まばたきの後、自然に目を開けてください' };
   }
   if (ctx.motion > C.maxMotion) return { code: 'motion', text: 'そのまま止まってください' };
   return null;
@@ -235,7 +235,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     }
     if (performance.now() < waitUntil) return;
     hold += 1;
-    onStatus({ code: 'hold', text: 'そのまま動かないでください', ...info });
+    onStatus({ code: 'hold', text: 'レンズを見たまま、動かないでください', ...info });
     if (hold < C.holdFrames) { onProgress(shots.length, hold / (C.holdFrames + C.framesPerShot)); return; }
 
     buffer.push(P);
@@ -301,7 +301,7 @@ export async function startCapture({ video, canvas, onStatus, onProgress, onShot
     else if (Math.hypot(cx, cy) > 0.2) problem = '顔を枠の中に入れてください';
     else if (env.luma < C.minLuma) problem = '暗いです。明るい場所で撮ってください';
     else if (blend(result, 'jawOpen') > C.maxJawOpen) problem = '口を閉じてください';
-    else if (Math.max(blend(result, 'eyeBlinkLeft'), blend(result, 'eyeBlinkRight')) > C.maxBlink) problem = '目を開けてください';
+    else if (Math.max(blend(result, 'eyeBlinkLeft'), blend(result, 'eyeBlinkRight')) > C.maxBlink) problem = 'まばたきの後、自然に目を開けてください';
     else if (env.motion > C.maxMotion * 1.5) problem = 'その向きで止まってください';
     const cls = classify(fit.angles);
     const sideTaken = views.side1?.cls, vertTaken = views.vert1?.cls;
