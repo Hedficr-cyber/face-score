@@ -12,7 +12,8 @@ import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA, NORM } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
-import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures } from './research-score.js';
+import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures, withoutElement } from './research-score.js';
+import { HUMAN_POSITION, HUMAN_TABLE } from './human-position.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
 import { renderEyewearGallery, updateEyewearGallery, renderPicks } from './eyewear-gallery.js';
@@ -290,6 +291,7 @@ function scoreTab(rec, r) {
 
   return `
     ${attractivenessModel ? '' : researchCard(r)}
+    ${attractivenessModel ? '' : readingCard(rec, r)}
     ${attractivenessModel ? '' : effectsCard(rec, r)}
     ${attractivenessModel ? '' : scaleCard(r)}
     ${attractivenessModel ? '' : partsCard(r)}
@@ -452,6 +454,40 @@ function researchCard(r) {
 // （＋＝その要素で点を得ている、−＝失っている）。1回ごとの揺れ（主に目の開き）で順番が入れ替わらないよう、
 // 直近の平均と同じ記録（この記録まで、最大5回）で平均する。
 let sensitivityCache = null;
+// この点数の見方（v0.18、本人の依頼 2026-10-21「目の影響を除いた点と、この点数が人の評価でどのあたりかを出して」）
+// ① 目の影響を除いた点：目（横幅と縦の開き）だけを基準の平均に置き換えて計算し直した点。直近の平均と同じく、最大5回の合成値を平均して順位にする。
+// ② 人の評価での位置：アプリの点数が同じくらいの顔が、研究用の評価データ（SCUT アジア系男性、重みを決めるのに使っていない後半）で
+//    人の評価の順位のどこに散らばるか（human-position.js、集計だけ）。評価者は日本人ではない。
+function readingCard(rec, r) {
+  if (!r.research) return '';
+  const evs = store.records().filter((x) => x.raw && x.at <= rec.at).slice(0, 5).map((x) => evaluate(x).research).filter(Boolean);
+  const list = evs.length >= 2 ? evs : [r.research], n = list.length;
+  const avgPct = (fn) => percentile(RESEARCH_REF.compositeSorted, list.reduce((s, e) => s + fn(e), 0) / n);
+  const score = n >= 2 ? avgPct((e) => e.composite) : r.research.total;
+  const noEyes = n >= 2 ? avgPct((e) => withoutElement(e, RESEARCH_REF, 'eyes').composite) : withoutElement(r.research, RESEARCH_REF, 'eyes').total;
+  const d = Math.round(score - noEyes), basis = n >= 2 ? `直近${n}回の平均 ${Math.round(score)}点` : `この回 ${Math.round(score)}点`;
+  const [lo, hi, cnt, q1, med, q3, top50, top25] = HUMAN_TABLE[Math.max(0, Math.min(100, Math.round(score)))];
+  const up = (p) => Math.max(1, 100 - p); // 順位 p（0〜100）を「100人中、上から何番目」に
+  return `<section aria-label="この点数の見方">
+    <h2 class="section-title">この点数の見方 <span>${basis}</span></h2>
+    <div class="card reading">
+      <div class="reading-row">
+        <div class="reading-head"><span>目の影響を除くと</span><b>${Math.round(noEyes)}</b><small>点</small></div>
+        <p>目（横幅と縦の開き）が日本人男性（基準 ${RESEARCH_REF.n} 人）の平均だった場合の点です。いまの点数は、目で約${Math.abs(d)}点${d >= 0 ? '上がって' : '下がって'}います。目以外の部位と顔の形で見た位置の目安です。目の縦の開きは撮影のたびに変わり、点数の揺れの主な原因でもあります。</p>
+      </div>
+      <div class="reading-row">
+        <div class="reading-head"><span>人の評価では</span><b>${med >= 50 ? `上位${up(med)}` : `下位${Math.max(1, med)}`}</b><small>%あたり</small></div>
+        <div class="hp-bar" role="img" aria-label="人の評価の順位：真ん中は100人中上から${up(med)}番目、半分の顔が上から${up(q3)}〜${up(q1)}番目の間">
+          <i class="hp-band" style="left:${q1}%;width:${Math.max(1, q3 - q1)}%"></i><i class="hp-med" style="left:${med}%"></i>
+        </div>
+        <div class="hp-scale"><span>下位</span><span>真ん中</span><span>上位</span></div>
+        <p>アプリで${lo}〜${hi}点だった顔 ${cnt}人は、人の評価で、真ん中が100人中上から${up(med)}番目くらい、半分の顔が上から${up(q3)}〜${up(q1)}番目の間でした。上位半分に入るのは${top50}%、上位4分の1に入るのは${top25}%です。</p>
+        <p class="small">人の評価は研究用データ（${esc(HUMAN_POSITION.source)}、正面・口を閉じた写真 ${HUMAN_POSITION.n} 枚）で、中国の評価者 ${HUMAN_POSITION.raters} 人がアジア系男性の写真を5段階で採点した平均です。日本人の評価者ではありません。点数と人の評価の一致は中くらい（撮影条件をそろえて ρ＝${RESEARCH_REF.validity.rhoB.toFixed(2)}）なので、同じ点数でも人の評価は広く散らばります。重みを決めるのに使っていない半分の写真で集計しました。</p>
+      </div>
+    </div>
+  </section>`;
+}
+
 function effectsCard(rec, r) {
   if (!r.research) return '';
   const evs = store.records().filter((x) => x.raw && x.at <= rec.at).slice(0, 5).map((x) => evaluate(x).research).filter(Boolean);

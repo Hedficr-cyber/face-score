@@ -317,6 +317,14 @@ export function elementSensitivity(ref) {
     return { key: e.key, name: e.name, points: base - totalFrom(f, s, ref).total };
   }).sort((a, b) => b.points - a.points);
 }
+// 1つの要素だけを基準の平均に置き換えた合成値と総合点（v0.18）。例：目の影響を除いた点（eyes：目の横幅と縦の開き）
+export function withoutElement(res, ref, key) {
+  const e = ELEMENTS.find((x) => x.key === key);
+  if (!e) throw new Error('unknown element ' + key);
+  const f = { ...res.features }, s = otherParts(res);
+  if (e.features) for (const k of e.features) f[k] = 0; else s[e.component] = 0;
+  return totalFrom(f, s, ref);
+}
 export const recomputeTotal = (res, ref) => totalFrom(res.features, otherParts(res), ref).total; // 要素を動かさずに計算し直した総合点（researchScore と一致するかの確認用）
 // 8特徴の一部を差し替えて総合点（0〜100）を計算し直す（v0.12）。例：目の縦の開きを本人のいつもの値にしたら何点か
 export function totalWithFeatures(res, ref, overrides = {}) {

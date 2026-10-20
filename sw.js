@@ -1,5 +1,5 @@
 // オフラインでも開けるようにする。版を上げたら CACHE の名前も変える。
-const CACHE = 'face-score-0.17.0';
+const CACHE = 'face-score-0.18.0';
 // 顔の検出のライブラリとモデル（約15MB）は版と別に持つ。MediaPipe やモデルを入れ替えたときだけ名前を変える
 const ASSETS = 'face-score-assets-mp1.0.1';
 const SHELL = [
@@ -7,7 +7,7 @@ const SHELL = [
   'js/main.js', 'js/store.js', 'js/analysis.js', 'js/advice.js', 'js/catalog.js', 'js/config.js',
   'js/geometry.js', 'js/mesh-data.js', 'js/portrait.js', 'js/chart.js', 'js/capture.js', 'js/detector.js', 'js/version.js', 'js/hairline.js', 'js/calibration.js',
   'js/attractiveness-features.js', 'js/relative-score.js', 'js/research-score.js', 'js/research-reference.js', 'js/import.js', 'js/record-camera.js',
-  'js/eyewear-gallery.js', 'js/eyewear-products.js',
+  'js/eyewear-gallery.js', 'js/eyewear-products.js', 'js/human-position.js',
   'icons/icon-192.png', 'icons/apple-touch-icon.png', 'img/cg-minus3.jpg', 'img/cg-0.jpg', 'img/cg-plus3.jpg',
   // 形と色の見本：最初に出る色（メガネはクリア、サングラスは濃いグレー）だけ。ほかの色は一度見ると下の fetch で手元に残る
   'img/eyewear/wellington-clear.webp', 'img/eyewear/boston-clear.webp', 'img/eyewear/round-clear.webp', 'img/eyewear/square-clear.webp',
