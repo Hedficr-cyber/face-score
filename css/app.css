@@ -450,3 +450,28 @@ button.chip { font-family: inherit; cursor: pointer; }
 /* v0.12：この回の目の開き */
 .recent-eye { margin: 7px 0 0; padding-top: 7px; border-top: 1px solid var(--line-2); font-size: 12px; line-height: 1.7; color: var(--text-2); }
 .recent-eye b { color: var(--text); font-weight: 600; }
+
+/* v0.13: 立体フレーム。写真は試着中だけメモリに置く */
+.frame-product { margin: 14px 0 12px; }
+.frame-product img { display: block; width: 100%; height: auto; border-radius: 14px; background: #ecebe7; }
+.frame-product img[hidden] { display: none; }
+.frame-product figcaption { margin-top: 6px; font-size: 10px; line-height: 1.5; color: var(--text-2); }
+.frame-loading { display: grid; place-items: center; min-height: 145px; padding: 12px; border-radius: 14px; background: var(--surface-2); color: var(--text-2); font-size: 12px; text-align: center; }
+.frame-loading[hidden] { display: none; }
+.tryon .cap-top { grid-template-columns: 40px minmax(0,1fr); padding-right: 16px; }
+.tryon .cap-status { font-size: 12px; }
+.tryon-stage { position: absolute; inset: calc(var(--safe-t) + 132px) 12px calc(var(--safe-b) + 214px); display: grid; place-items: center; overflow: hidden; }
+.tryon-stage canvas { display: block; max-width: 100%; max-height: 100%; }
+.tryon-stage .mirrored { transform: scaleX(-1); }
+.tryon-sources { position: absolute; top: calc(var(--safe-t) + 75px); left: 12px; right: 12px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.tryon-sources .btn { min-height: 44px; padding: 9px 4px; font-size: 12px; white-space: nowrap; }
+.tryon-freeze { margin: 0 auto 10px; min-height: 44px; }
+.tryon-freeze[hidden] { display: none; }
+.tryon .tryon-bottom { padding-top: 4px; background: rgba(9,9,10,.92); }
+.tryon .tryon-note { font-size: 10.5px; }
+.tryon [hidden] { display: none; }
+@media (max-height: 600px) {
+  .tryon-stage { top: calc(var(--safe-t) + 120px); bottom: calc(var(--safe-b) + 170px); }
+  .tryon .tryon-note { max-height: 35px; overflow-y: auto; }
+  .tryon .tryon-item { min-height: 58px; }
+}

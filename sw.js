@@ -1,5 +1,5 @@
 // オフラインでも開けるようにする。版を上げたら CACHE の名前も変える。
-const CACHE = 'face-score-0.12.0';
+const CACHE = 'face-score-0.13.0';
 // 顔の検出のライブラリとモデル（約15MB）は版と別に持つ。MediaPipe やモデルを入れ替えたときだけ名前を変える
 const ASSETS = 'face-score-assets-mp1.0.1';
 const SHELL = [
@@ -7,7 +7,10 @@ const SHELL = [
   'js/main.js', 'js/store.js', 'js/analysis.js', 'js/advice.js', 'js/catalog.js', 'js/config.js',
   'js/geometry.js', 'js/mesh-data.js', 'js/portrait.js', 'js/chart.js', 'js/capture.js', 'js/detector.js', 'js/version.js', 'js/hairline.js', 'js/calibration.js',
   'js/attractiveness-features.js', 'js/relative-score.js', 'js/research-score.js', 'js/research-reference.js', 'js/import.js', 'js/record-camera.js', 'js/eyewear-visuals.js', 'js/tryon.js',
+  'js/eyewear-3d.js', 'js/eyewear-models.js', 'js/face-triangles.js', 'js/tryon-photo.js',
+  'vendor/three/three.module.min.js', 'vendor/three/RoomEnvironment.js',
   'icons/icon-192.png', 'icons/apple-touch-icon.png', 'img/cg-minus3.jpg', 'img/cg-0.jpg', 'img/cg-plus3.jpg',
+  'img/model-cg.jpg', 'img/model-cg-landmarks.json',
 ];
 
 self.addEventListener('install', (e) => {
@@ -25,7 +28,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   // 大きいライブラリとモデルは一度取ったら手元のものを使う
   if (url.pathname.includes('/vendor/') || url.pathname.includes('/models/')) {
-    e.respondWith(caches.open(ASSETS).then((c) => c.match(e.request)).then((hit) => hit || fetch(e.request).then((res) => {
+    e.respondWith(caches.open(ASSETS).then((c) => c.match(e.request)).then(async (hit) => hit || (await caches.open(CACHE)).match(e.request)).then((hit) => hit || fetch(e.request).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(ASSETS).then((c) => c.put(e.request, copy)); }
       return res;
     })));

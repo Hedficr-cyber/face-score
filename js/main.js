@@ -16,6 +16,7 @@ import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, el
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
 import { openTryOn } from './tryon.js';
+import { renderProduct, disposeProductRenderer } from './eyewear-3d.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -31,6 +32,22 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
 } : null;
 
 const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false, historyOpen: false };
+let productGeneration = 0;
+async function hydrateFrameImages() {
+  const generation = ++productGeneration;
+  const images = [...view.querySelectorAll('img[data-frame]')];
+  try {
+    for (const img of images) {
+      if (generation !== productGeneration || !img.isConnected) return;
+      try {
+        const url = await renderProduct(img.dataset.frame);
+        if (generation !== productGeneration || !img.isConnected) return;
+        img.src = url; img.hidden = false; img.nextElementSibling.hidden = true;
+      } catch { if (img.isConnected) img.nextElementSibling.textContent = 'このブラウザでは3D見本を表示できません'; }
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+  } finally { disposeProductRenderer(); }
+}
 let attractivenessModel = null;
 try { attractivenessModel = validateJapaneseMaleModel(store.setting('attractivenessModel')); } catch { /* 日本人男性の基準がなければ主点は未算出 */ }
 // 主点：日本人男性の評価付きモデルを取り込んでいればそれ、なければ研究の知見による相対点（2026-10-19 本人の決定）
@@ -251,6 +268,7 @@ function renderResult(rec, { latest }) {
     ${resultNotes(rec, r)}
     ${latest ? '' : `<div class="actions"><button class="btn danger block" type="button" data-act="delete" data-id="${esc(rec.id)}">この記録を削除</button></div>`}
   `;
+  void hydrateFrameImages();
 }
 
 function tabBody(rec, r) {
@@ -567,6 +585,7 @@ function rankList(list, all, kind = 'hair') {
         <span class="rank-name">${esc(h.name)}${i === 0 ? '<span class="rank-tag">BEST</span>' : ''}</span>
         <span class="rank-score">${Math.round(h.score)}</span>
       </div>
+      ${kind === 'eyewear' ? `<figure class="frame-product"><img data-frame="${esc(h.id)}" alt="${esc(h.name)}の立体的な形の見本" width="900" height="560" hidden><span class="frame-loading">3D見本を準備しています</span><figcaption>形の3D見本・実在商品の写真ではありません</figcaption></figure>` : ''}
       ${meter(h.score)}
       <div class="rank-tip"><b>${kind === 'hair' ? '美容室での頼み方' : '選ぶときのポイント'}</b>${esc(h.tip)}</div>
       ${kind === 'eyewear' ? `<button class="btn ghost tryon-btn" type="button" data-act="tryon" data-id="${esc(h.id)}">この形を自分の顔で試す</button>` : ''}
@@ -592,7 +611,7 @@ function eyewearTab(r) {
       <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
     <div class="card tryon-cta">
-      <p><b>自分の顔で試着</b>カメラに映った今の顔と髪型に、フレームを実際の大きさで重ねて見られます。映像はスマホの中だけで処理し、保存も送信もしません。</p>
+      <p><b>立体フレームを試着</b>見本の顔・カメラ・自分で選んだ写真に重ねて見られます。写真はこの画面が開いている間だけ使い、閉じると消えます。保存・送信・採点には使いません。</p>
       <button class="btn block" type="button" data-act="tryon" data-id="${esc(list[0]?.id || '')}">試着をはじめる</button>
     </div>
     <h2 class="section-title">似合う${ui.eyewear === 'sun' ? 'サングラス' : 'メガネ'}</h2>
@@ -707,6 +726,7 @@ function rerenderTab() {
   try { rec = hash.startsWith('#r/') ? store.get(decodeURIComponent(hash.slice(3))) : store.latest(); } catch { location.hash = '#history'; return; }
   if (!body || !rec) return;
   body.innerHTML = tabBody(rec, evaluate(rec));
+  void hydrateFrameImages();
   document.querySelectorAll('.seg [data-tab]').forEach((b) => {
     b.classList.toggle('on', b.dataset.tab === ui.tab);
     b.setAttribute('aria-selected', b.dataset.tab === ui.tab);
@@ -736,7 +756,7 @@ view.addEventListener('click', (e) => {
     const r = rec ? evaluate(rec) : null;
     if (r) {
       const items = ['glasses', 'sunglasses'].flatMap((k) => r.glasses.filter((g) => g.kind === k)).map((g) => ({ id: g.id, name: g.name, kind: g.kind, score: g.score }));
-      openTryOn({ items, startId: t.dataset.id || items[0]?.id });
+      openTryOn({ items, startId: t.dataset.id || items[0]?.id, pd: r.size?.pd ?? null });
     }
   }
   if (act === 'import') importData();
@@ -849,7 +869,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   <p class="small">カメラの較正は「記録」のいちばん下にある「遠近の補正」から行えます。</p>
   <h3>データ</h3>
   <ul>
-    <li>写真は保存せず、どこにも送りません。保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。</li>
+    <li>写真は保存せず、どこにも送りません。採点で保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。試着で選んだ写真はその画面のメモリ内だけで使い、閉じると消えます。採点や記録の書き出しには使いません。</li>
     <li>顔の検出には Google の MediaPipe（Apache-2.0）をアプリに同梱して使っています。利用状況の送信もアプリ側で止めています。</li>
   </ul>
   <p class="small" style="margin-top:18px">バージョン ${VERSION}・3枚×${CAPTURE.framesPerShot}フレームの平均</p>
