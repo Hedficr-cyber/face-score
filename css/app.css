@@ -419,17 +419,6 @@ button.chip { font-family: inherit; cursor: pointer; }
 .rank-tip b { display: block; margin-bottom: 3px; color: var(--accent); font-size: 12px; font-weight: 600; }
 .rank-reasons { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .rank-reasons > b { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: var(--text-2); }
-.tryon-btn { margin-top: 10px; width: 100%; }
-.tryon-cta p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
-.tryon-cta p b { display: block; margin-bottom: 2px; font-size: 15px; color: var(--text); }
-.tryon-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 0 calc(var(--safe-b) + 16px); background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.65)); }
-.tryon-list { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
-.tryon-item { flex: 0 0 auto; scroll-snap-align: center; min-width: 112px; min-height: 64px; padding: 8px 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.42); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: var(--text); text-align: left; display: grid; gap: 2px; }
-.tryon-item.on { border-color: var(--accent); background: rgba(217,199,158,.18); }
-.tryon-item b { font-size: 13px; font-weight: 600; }
-.tryon-kind { font-size: 10px; color: var(--text-2); }
-.tryon-score { font-family: var(--num); font-size: 12px; color: var(--accent); }
-.tryon-note { margin: 8px 16px 0; font-size: 11px; line-height: 1.6; color: rgba(255,255,255,.7); text-align: center; }
 /* v0.11：点数を上げ下げしている要素 */
 .effects { padding: 6px 16px 10px; }
 .effect-group { margin: 12px 0 2px; font-size: 11px; letter-spacing: .06em; color: var(--text-3); }
@@ -451,27 +440,47 @@ button.chip { font-family: inherit; cursor: pointer; }
 .recent-eye { margin: 7px 0 0; padding-top: 7px; border-top: 1px solid var(--line-2); font-size: 12px; line-height: 1.7; color: var(--text-2); }
 .recent-eye b { color: var(--text); font-weight: 600; }
 
-/* v0.13: 立体フレーム。写真は試着中だけメモリに置く */
-.frame-product { margin: 14px 0 12px; }
-.frame-product img { display: block; width: 100%; height: auto; border-radius: 14px; background: #ecebe7; }
-.frame-product img[hidden] { display: none; }
-.frame-product figcaption { margin-top: 6px; font-size: 10px; line-height: 1.5; color: var(--text-2); }
-.frame-loading { display: grid; place-items: center; min-height: 145px; padding: 12px; border-radius: 14px; background: var(--surface-2); color: var(--text-2); font-size: 12px; text-align: center; }
-.frame-loading[hidden] { display: none; }
-.tryon .cap-top { grid-template-columns: 40px minmax(0,1fr); padding-right: 16px; }
-.tryon .cap-status { font-size: 12px; }
-.tryon-stage { position: absolute; inset: calc(var(--safe-t) + 132px) 12px calc(var(--safe-b) + 214px); display: grid; place-items: center; overflow: hidden; }
-.tryon-stage canvas { display: block; max-width: 100%; max-height: 100%; }
-.tryon-stage .mirrored { transform: scaleX(-1); }
-.tryon-sources { position: absolute; top: calc(var(--safe-t) + 75px); left: 12px; right: 12px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
-.tryon-sources .btn { min-height: 44px; padding: 9px 4px; font-size: 12px; white-space: nowrap; }
-.tryon-freeze { margin: 0 auto 10px; min-height: 44px; }
-.tryon-freeze[hidden] { display: none; }
-.tryon .tryon-bottom { padding-top: 4px; background: rgba(9,9,10,.92); }
-.tryon .tryon-note { font-size: 10.5px; }
-.tryon [hidden] { display: none; }
-@media (max-height: 600px) {
-  .tryon-stage { top: calc(var(--safe-t) + 120px); bottom: calc(var(--safe-b) + 170px); }
-  .tryon .tryon-note { max-height: 35px; overflow-y: auto; }
-  .tryon .tryon-item { min-height: 58px; }
-}
+/* v0.14: 静止画だけで形・色・公式商品を見比べる */
+.eyewear-gallery { padding: 18px 16px; scroll-margin-top: 138px; }
+.gallery-heading .label { margin: 0 0 8px; }
+.gallery-heading h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.gallery-heading p { margin: 6px 0 18px; color: var(--text-2); font-size: 13px; }
+.gallery-shapes { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.gallery-shape { border: 1px solid var(--line-2); border-radius: 13px; padding: 5px 4px 9px; background: var(--surface-2); color: var(--text-2); min-width: 0; min-height: 104px; cursor: pointer; display: grid; align-content: start; gap: 4px; font-family: var(--font); }
+.gallery-shape img { display: block; width: 100%; height: auto; border-radius: 8px; background: #ecebe7; }
+.gallery-shape span { font-size: 12px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.gallery-shape small { font-size: 11px; color: var(--text-2); }
+.gallery-shape.on { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: rgba(217,199,158,.09); }
+.gallery-selection { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin: 22px 0 10px; }
+.gallery-selection h3 { margin: 0; font-size: 17px; }
+.gallery-selection span { font-size: 12px; color: var(--accent); white-space: nowrap; }
+.gallery-preview { margin: 0 0 16px; }
+.gallery-preview img { display: block; width: 100%; height: auto; border-radius: 14px; background: #ecebe7; }
+.gallery-preview figcaption { margin-top: 6px; font-size: 12px; color: var(--text-2); }
+.gallery-color-label { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+.gallery-color-label b { color: var(--text); font-weight: 500; }
+.gallery-colors { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.gallery-color { display: grid; grid-template-columns: 21px minmax(0,1fr) 12px; align-items: center; gap: 7px; min-height: 48px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--text-2); text-align: left; font-family: var(--font); cursor: pointer; }
+.gallery-color i { width: 21px; height: 21px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px rgba(255,255,255,.28); }
+.gallery-color span { font-size: 12px; line-height: 1.4; }
+.gallery-color b { font-size: 13px; color: var(--accent); }
+.gallery-color.on { border-color: var(--accent); color: var(--text); background: rgba(217,199,158,.1); }
+.gallery-color-note { min-height: 2.8em; margin: 12px 0 8px; font-size: 13px; line-height: 1.6; }
+.gallery-disclaimer { margin: 0; }
+.gallery-products-title { margin: 24px 0 6px; padding-top: 20px; border-top: 1px solid var(--line-2); font-size: 17px; }
+.gallery-product-note { margin: 0 0 12px; }
+.eyewear-products { display: grid; gap: 10px; }
+.eyewear-product { padding: 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface-2); min-width: 0; }
+.product-brand { font-size: 11px; letter-spacing: .12em; color: var(--accent); }
+.eyewear-product h4 { font-size: 14px; line-height: 1.6; margin: 5px 0; overflow-wrap: anywhere; }
+.eyewear-product p { font-size: 12px; color: var(--text-2); line-height: 1.7; margin: 0 0 12px; }
+.eyewear-product .btn { font-size: 13px; min-height: 44px; padding: 11px 8px; text-decoration: none; }
+.gallery-product-foot { margin: 12px 0 0; }
+.gallery-jump { width: 100%; margin: 12px 0; min-height: 44px; }
+.gallery-shape:focus-visible,.gallery-color:focus-visible,.eyewear-product a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.gallery-color:active,.gallery-shape:active { background: rgba(217,199,158,.16); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media (min-width: 600px) { .gallery-shapes { grid-template-columns: repeat(4,minmax(0,1fr)); } .gallery-colors { grid-template-columns: repeat(4,minmax(0,1fr)); } .eyewear-products { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+/* v0.14：商品カードの品番と公式の仕様 */
+.product-brand span { margin-left: 8px; color: var(--text-3); letter-spacing: .04em; }
+.eyewear-product .product-spec { margin: 2px 0 6px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }

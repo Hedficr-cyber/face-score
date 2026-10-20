@@ -15,8 +15,7 @@ import { predictAttractiveness, validateJapaneseMaleModel } from './relative-sco
 import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
-import { openTryOn } from './tryon.js';
-import { renderProduct, disposeProductRenderer } from './eyewear-3d.js';
+import { renderEyewearGallery, updateEyewearGallery } from './eyewear-gallery.js';
 import { REFERENCE as RESEARCH_REF } from './research-reference.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -32,22 +31,7 @@ const DEV = ['localhost', '127.0.0.1'].includes(location.hostname) ? {
 } : null;
 
 const ui = { tab: 'score', portrait: 'thirds', eyewear: 'glasses', open: new Set(), allHair: false, allGlasses: false, historyOpen: false };
-let productGeneration = 0;
-async function hydrateFrameImages() {
-  const generation = ++productGeneration;
-  const images = [...view.querySelectorAll('img[data-frame]')];
-  try {
-    for (const img of images) {
-      if (generation !== productGeneration || !img.isConnected) return;
-      try {
-        const url = await renderProduct(img.dataset.frame);
-        if (generation !== productGeneration || !img.isConnected) return;
-        img.src = url; img.hidden = false; img.nextElementSibling.hidden = true;
-      } catch { if (img.isConnected) img.nextElementSibling.textContent = 'このブラウザでは3D見本を表示できません'; }
-      await new Promise(resolve => setTimeout(resolve, 0));
-    }
-  } finally { disposeProductRenderer(); }
-}
+const eyewearChoices = { glasses: { frame: null, color: 'clear' }, sun: { frame: null, color: 'dark-gray' } };
 let attractivenessModel = null;
 try { attractivenessModel = validateJapaneseMaleModel(store.setting('attractivenessModel')); } catch { /* 日本人男性の基準がなければ主点は未算出 */ }
 // 主点：日本人男性の評価付きモデルを取り込んでいればそれ、なければ研究の知見による相対点（2026-10-19 本人の決定）
@@ -268,7 +252,6 @@ function renderResult(rec, { latest }) {
     ${resultNotes(rec, r)}
     ${latest ? '' : `<div class="actions"><button class="btn danger block" type="button" data-act="delete" data-id="${esc(rec.id)}">この記録を削除</button></div>`}
   `;
-  void hydrateFrameImages();
 }
 
 function tabBody(rec, r) {
@@ -585,10 +568,10 @@ function rankList(list, all, kind = 'hair') {
         <span class="rank-name">${esc(h.name)}${i === 0 ? '<span class="rank-tag">BEST</span>' : ''}</span>
         <span class="rank-score">${Math.round(h.score)}</span>
       </div>
-      ${kind === 'eyewear' ? `<figure class="frame-product"><img data-frame="${esc(h.id)}" alt="${esc(h.name)}の立体的な形の見本" width="900" height="560" hidden><span class="frame-loading">3D見本を準備しています</span><figcaption>形の3D見本・実在商品の写真ではありません</figcaption></figure>` : ''}
+
       ${meter(h.score)}
       <div class="rank-tip"><b>${kind === 'hair' ? '美容室での頼み方' : '選ぶときのポイント'}</b>${esc(h.tip)}</div>
-      ${kind === 'eyewear' ? `<button class="btn ghost tryon-btn" type="button" data-act="tryon" data-id="${esc(h.id)}">この形を自分の顔で試す</button>` : ''}
+      ${kind === 'eyewear' ? `<button class="btn ghost gallery-jump" type="button" data-gallery-shape="${esc(h.id)}" data-gallery-jump>この形の色・商品を見る</button>` : ''}
       <div class="rank-reasons"><b>この点数の理由</b><ul class="rank-why">${h.reasons.map((t) => typeof t === 'string' ? `<li>${esc(t)}</li>` : `<li><span class="why-src ${t.src === 'rule' ? '' : t.v > 0 ? 'plus' : 'minus'}${t.src === 'research' ? ' research' : ''}">${t.src === 'rule' ? '定番' : t.src === 'research' ? '研究' : '測定'}</span>${esc(t.text)}</li>`).join('')}</ul>
       </div>
     </article>`).join('')}</div>`;
@@ -610,11 +593,8 @@ function eyewearTab(r) {
       <button type="button" aria-pressed="${ui.eyewear === 'glasses'}" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
       <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
-    <div class="card tryon-cta">
-      <p><b>立体フレームを試着</b>見本の顔・カメラ・自分で選んだ写真に重ねて見られます。写真はこの画面が開いている間だけ使い、閉じると消えます。保存・送信・採点には使いません。</p>
-      <button class="btn block" type="button" data-act="tryon" data-id="${esc(list[0]?.id || '')}">試着をはじめる</button>
-    </div>
-    <h2 class="section-title">似合う${ui.eyewear === 'sun' ? 'サングラス' : 'メガネ'}</h2>
+    ${renderEyewearGallery(list, eyewearChoices[ui.eyewear])}
+    <h2 class="section-title">形ごとの相性と選ぶポイント</h2>
     ${rankList(list, true, 'eyewear')}
     <h2 class="section-title">サイズの目安</h2>
     <div class="card">
@@ -726,7 +706,6 @@ function rerenderTab() {
   try { rec = hash.startsWith('#r/') ? store.get(decodeURIComponent(hash.slice(3))) : store.latest(); } catch { location.hash = '#history'; return; }
   if (!body || !rec) return;
   body.innerHTML = tabBody(rec, evaluate(rec));
-  void hydrateFrameImages();
   document.querySelectorAll('.seg [data-tab]').forEach((b) => {
     b.classList.toggle('on', b.dataset.tab === ui.tab);
     b.setAttribute('aria-selected', b.dataset.tab === ui.tab);
@@ -739,6 +718,16 @@ view.addEventListener('click', (e) => {
   if (t.dataset.tab) { ui.tab = t.dataset.tab; rerenderTab(); return; }
   if (t.dataset.portrait) { ui.portrait = t.dataset.portrait; rerenderTab(); return; }
   if (t.dataset.eyewear) { ui.eyewear = t.dataset.eyewear; rerenderTab(); return; }
+  if (t.dataset.galleryShape || t.dataset.galleryColor) {
+    const rec = currentRecord(); if (!rec) return;
+    const list = evaluate(rec).glasses.filter(g => g.kind === (ui.eyewear === 'sun' ? 'sunglasses' : 'glasses'));
+    const choice = eyewearChoices[ui.eyewear];
+    if (t.dataset.galleryShape && list.some(g => g.id === t.dataset.galleryShape)) choice.frame = t.dataset.galleryShape;
+    if (t.dataset.galleryColor) choice.color = t.dataset.galleryColor;
+    const gallery = view.querySelector('.eyewear-gallery'); updateEyewearGallery(gallery, list, choice);
+    if (t.hasAttribute('data-gallery-jump')) { gallery?.scrollIntoView({ block: 'start' }); gallery?.querySelector(`[data-gallery-shape="${choice.frame}"]`)?.focus({ preventScroll: true }); }
+    return;
+  }
   if (t.classList.contains('item-head')) {
     const k = t.closest('.item').dataset.item;
     if (ui.open.has(k)) ui.open.delete(k); else ui.open.add(k);
@@ -751,14 +740,6 @@ view.addEventListener('click', (e) => {
   if (act === 'calib') openCalibSheet();
   if (act === 'allHair') { ui.allHair = true; rerenderTab(); }
   if (act === 'export') exportData();
-  if (act === 'tryon') {
-    const rec = currentRecord();
-    const r = rec ? evaluate(rec) : null;
-    if (r) {
-      const items = ['glasses', 'sunglasses'].flatMap((k) => r.glasses.filter((g) => g.kind === k)).map((g) => ({ id: g.id, name: g.name, kind: g.kind, score: g.score }));
-      openTryOn({ items, startId: t.dataset.id || items[0]?.id, pd: r.size?.pd ?? null });
-    }
-  }
   if (act === 'import') importData();
   if (act === 'clear') confirmSheet('すべての記録を削除しますか？', '元に戻せません。必要なら先に書き出してください。', '削除する', () => {
     if (!store.clear()) { toast('削除を保存できませんでした。記録は残っています'); return; }
@@ -869,7 +850,7 @@ $('#infoBtn').addEventListener('click', () => openSheet(`
   <p class="small">カメラの較正は「記録」のいちばん下にある「遠近の補正」から行えます。</p>
   <h3>データ</h3>
   <ul>
-    <li>写真は保存せず、どこにも送りません。採点で保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。試着で選んだ写真はその画面のメモリ内だけで使い、閉じると消えます。採点や記録の書き出しには使いません。</li>
+    <li>写真は保存せず、どこにも送りません。採点で保存するのは顔の点の座標と点数のもとになる数値だけで、この端末の中にあります。アクセサリーの形・色見本には顔写真を使いません。公式商品ページは、リンクを押したときだけ開きます。</li>
     <li>顔の検出には Google の MediaPipe（Apache-2.0）をアプリに同梱して使っています。利用状況の送信もアプリ側で止めています。</li>
   </ul>
   <p class="small" style="margin-top:18px">バージョン ${VERSION}・3枚×${CAPTURE.framesPerShot}フレームの平均</p>
