@@ -9,7 +9,7 @@ import { toFaceAxes, alignToCanonical, averagePoints } from './geometry.js';
 import { detectHairline } from './hairline.js';
 import { frontalFromRaw, solveFocalFromTurns, fovDegrees } from './calibration.js';
 import { unpackRaw } from './store.js';
-import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
+import { SCORE, CAPTURE, PROVISIONAL, CAMERA, NORM } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
 import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures } from './research-score.js';
@@ -585,6 +585,12 @@ function hairTab(r) {
     <p class="small" style="margin-top:14px">点数＝顔の形との相性（「定番」：美容室で定番の考え方による目安）に、あなたの測定値（「測定」：縦横の比率・おでこの広さ・あごの幅、部位の強み・弱み）をどれだけ生かせるか・整えられるかを足したもの。目元・眉と目の距離の向き（どちらが好まれるか）は、日本人の評価者の研究（Nakamura & Watanabe 2020）と評価データで確かめたものです。</p>`;
 }
 
+// 商品の厳選に使う測定：サイズの目安と、顔の縦横比のずれ（平均顔の標準偏差の単位。天地幅の向きに使う）と顔の形（「〇〇顔向け」の商品に使う）
+function fitContext(r) {
+  const m = r.measures, lean = m && m.width > 0 ? (m.lengthK1 / m.width - NORM.length.mean) / NORM.length.sd : NaN;
+  const faceShape = r.shape?.main?.key;
+  return r.size ? { ...r.size, lengthLean: lean, faceShape } : (Number.isFinite(lean) ? { lengthLean: lean, faceShape } : null);
+}
 function eyewearTab(r) {
   const list = r.glasses.filter((g) => g.kind === (ui.eyewear === 'sun' ? 'sunglasses' : 'glasses'));
   const s = r.size;
@@ -593,8 +599,8 @@ function eyewearTab(r) {
       <button type="button" aria-pressed="${ui.eyewear === 'glasses'}" class="${ui.eyewear === 'glasses' ? 'on' : ''}" data-eyewear="glasses">メガネ</button>
       <button type="button" aria-pressed="${ui.eyewear === 'sun'}" class="${ui.eyewear === 'sun' ? 'on' : ''}" data-eyewear="sun">サングラス</button>
     </div>
-    ${renderPicks(list, s)}
-    ${renderEyewearGallery(list, eyewearChoices[ui.eyewear], s)}
+    ${renderPicks(list, fitContext(r))}
+    ${renderEyewearGallery(list, eyewearChoices[ui.eyewear], fitContext(r))}
     <h2 class="section-title">形ごとの相性と選ぶポイント</h2>
     ${rankList(list, true, 'eyewear')}
     <h2 class="section-title">サイズの目安</h2>
@@ -725,7 +731,7 @@ view.addEventListener('click', (e) => {
     const choice = eyewearChoices[ui.eyewear];
     if (t.dataset.galleryShape && list.some(g => g.id === t.dataset.galleryShape)) choice.frame = t.dataset.galleryShape;
     if (t.dataset.galleryColor) choice.color = t.dataset.galleryColor;
-    const gallery = view.querySelector('.eyewear-gallery'); updateEyewearGallery(gallery, list, choice, evaluate(rec).size);
+    const gallery = view.querySelector('.eyewear-gallery'); updateEyewearGallery(gallery, list, choice, fitContext(evaluate(rec)));
     if (t.hasAttribute('data-gallery-jump')) { gallery?.scrollIntoView({ block: 'start' }); gallery?.querySelector(`[data-gallery-shape="${choice.frame}"]`)?.focus({ preventScroll: true }); }
     return;
   }
