@@ -318,3 +318,8 @@ export function elementSensitivity(ref) {
   }).sort((a, b) => b.points - a.points);
 }
 export const recomputeTotal = (res, ref) => totalFrom(res.features, otherParts(res), ref).total; // 要素を動かさずに計算し直した総合点（researchScore と一致するかの確認用）
+// 8特徴の一部を差し替えて総合点（0〜100）を計算し直す（v0.12）。例：目の縦の開きを本人のいつもの値にしたら何点か
+export function totalWithFeatures(res, ref, overrides = {}) {
+  for (const [k, v] of Object.entries(overrides)) { if (!(k in res.features)) throw new Error('unknown feature ' + k); finite(v, k); }
+  return totalFrom({ ...res.features, ...overrides }, otherParts(res), ref).total;
+}

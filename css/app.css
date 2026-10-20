@@ -447,3 +447,6 @@ button.chip { font-family: inherit; cursor: pointer; }
 .effect-row.minus .effect-pts { color: #e7a49b; }
 .effect-note { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; color: var(--text-2); }
 .effects-foot { margin: 10px 2px 0; }
+/* v0.12：この回の目の開き */
+.recent-eye { margin: 7px 0 0; padding-top: 7px; border-top: 1px solid var(--line-2); font-size: 12px; line-height: 1.7; color: var(--text-2); }
+.recent-eye b { color: var(--text); font-weight: 600; }

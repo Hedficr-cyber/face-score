@@ -12,7 +12,7 @@ import { unpackRaw } from './store.js';
 import { SCORE, CAPTURE, PROVISIONAL, CAMERA } from './config.js';
 import { VERSION } from './version.js';
 import { predictAttractiveness, validateJapaneseMaleModel } from './relative-score.js';
-import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity } from './research-score.js';
+import { researchScore, percentileInterval, percentile, levelOf, LEVEL_WORDS, elementImpacts, elementSensitivity, totalWithFeatures } from './research-score.js';
 import { parseExport, IMPORT_LIMITS } from './import.js';
 import { cameraForRecord } from './record-camera.js';
 import { openTryOn } from './tryon.js';
@@ -180,14 +180,27 @@ function recentAverage(rec) {
   return { n, total: percentile(RESEARCH_REF.compositeSorted, m), interval: percentileInterval(RESEARCH_REF.compositeSorted, m, sdc / Math.sqrt(n)),
     perRecordSd: Math.sqrt(ts.reduce((a, b) => a + (b - tm) ** 2, 0) / (n - 1)) };
 }
-function recentBlock(rec) {
+// この回の目の縦の開きと、本人のいつもの開き（この記録までの最大20回の中央値）の比較（v0.12）。
+// 本人の記録の解析（2026-10-20、目の状態つき26回）では、記録どうしの点数の揺れの大部分が目の縦の開きで、
+// 撮影中に目を細める度合いとの相関は −0.97。いつもの開きにそろえると、1回ごとの標準偏差は5.2点→3.2点になった。
+function eyeNote(rec, R) {
+  const evs = store.records().filter((x) => x.raw && x.at <= rec.at).slice(0, 20).map((x) => evaluate(x).research).filter(Boolean);
+  if (evs.length < 5 || !R?.features) return '';
+  const vals = evs.map((e) => e.features.eyeOpen).sort((a, b) => a - b), n = vals.length;
+  const usual = n % 2 ? vals[(n - 1) / 2] : (vals[n / 2 - 1] + vals[n / 2]) / 2;
+  const std = totalWithFeatures(R, RESEARCH_REF, { eyeOpen: usual }), d = std - R.total;
+  if (Math.abs(d) < 2) return `<p class="recent-eye">この回の目の縦の開きは、いつもどおりでした（あなたの最近${n}回の真ん中くらい）。</p>`;
+  return `<p class="recent-eye">この回は目が<b>いつもより${d > 0 ? '細め' : '大きく開いていました'}</b>${d > 0 ? 'でした' : ''}。いつもの開きなら約<b>${Math.round(std)}点</b>です（目の開き方だけで${Math.round(Math.abs(d))}点動いています）。</p>`;
+}
+function recentBlock(rec, R) {
   if (attractivenessModel) return '';
   const a = recentAverage(rec);
-  if (a.total == null) return `<div class="recent"><p>1回ごとの点数は、目の開き方などで10点前後揺れます。同じ条件で3〜5回測ると、ここに平均が出て点数が安定します。</p></div>`;
+  if (a.total == null) return `<div class="recent"><p>1回ごとの点数は、目の開き方などで10点前後揺れます。同じ条件で3〜5回測ると、ここに平均が出て点数が安定します。</p>${eyeNote(rec, R)}</div>`;
   const [lo, hi] = a.interval.map(Math.round);
   return `<div class="recent">
       <div class="recent-head">直近${a.n}回の平均 <b>${Math.round(a.total)}</b><span>点</span>　10段階で <b>${levelOf(a.total)}</b></div>
       <p>1回ごとの点数は、目の開き方などで揺れます（いまの記録では1回ごとに ±${Math.round(a.perRecordSd)} 点ほど）。${a.n}回の平均の方が確かな目安です。参考範囲 ${lo}〜${hi} 点。${a.n < 5 ? `あと${5 - a.n}回測ると、さらに安定します。` : ''}</p>
+      ${eyeNote(rec, R)}
     </div>`;
 }
 
@@ -225,7 +238,7 @@ function renderResult(rec, { latest }) {
       <div class="hero-date">${dateText(rec.at)}</div>
       <div class="small">${attractivenessModel ? '日本人男性の魅力相対点' : '研究の相対スコア'}</div>
       ${attraction ? gauge(attraction.percentile, 'RELATIVE / 100') : primaryResearch ? gauge(primaryResearch.total, 'RESEARCH / 100', primaryResearch.interval) : '<h1>未算出</h1>'}
-      ${primaryResearch?.interval ? `<div class="range-text">参考範囲 <b>${Math.round(primaryResearch.interval[0])}〜${Math.round(primaryResearch.interval[1])}</b> 点<span>（推定）</span></div>${levelBlock(primaryResearch)}${recentBlock(rec)}` : ''}
+      ${primaryResearch?.interval ? `<div class="range-text">参考範囲 <b>${Math.round(primaryResearch.interval[0])}〜${Math.round(primaryResearch.interval[1])}</b> 点<span>（推定）</span></div>${levelBlock(primaryResearch)}${recentBlock(rec, primaryResearch)}` : ''}
       ${primaryResearch ? `<p class="score-context">基準 ${RESEARCH_REF.n} 人内の目安</p>` : ''}
       ${attraction?.outsideReference ? '<p class="small" role="status">今回の値は、取り込んだ基準分布の範囲外です。</p>' : ''}
       ${r.attractivenessError ? `<p class="small" role="alert">${esc(r.attractivenessError)}</p>` : !attraction && !primaryResearch ? `<p class="small" role="${rec.raw ? 'alert' : 'status'}">${rec.raw ? 'この記録の主点は計算できませんでした。' : 'この古い記録には元の点がないため、主点は未算出です。'}</p>` : ''}
